@@ -114,6 +114,19 @@ class ChallingoApi {
   Future<List<Lottery>> lotteryHistory() async =>
       [for (final d in (await _send('GET', 'lottery/history')) as List) Lottery.fromJson((d as Map).cast<String, dynamic>())];
 
+  // --- Ads and Plus -------------------------------------------------------
+
+  Future<MonetizationStatus> monetizationStatus() async => MonetizationStatus.fromJson(await _map('GET', 'monetization/status'));
+
+  /// Development only: a rewarded ad without AdMob (Google's test ads never reach our verification URL).
+  Future<MonetizationStatus> devAdReward() async => MonetizationStatus.fromJson(await _map('POST', 'monetization/ads/dev-reward'));
+
+  /// Re-reads Plus from RevenueCat after a purchase or restore.
+  Future<MonetizationStatus> syncPlus() async => MonetizationStatus.fromJson(await _map('POST', 'monetization/plus/sync'));
+
+  /// Development only: Plus for [days] days (0 ends it).
+  Future<MonetizationStatus> devPlus(int days) async => MonetizationStatus.fromJson(await _map('POST', 'monetization/plus/dev?days=$days'));
+
   // --- Groups -------------------------------------------------------------
 
   Future<List<GroupInfo>> groups() async =>

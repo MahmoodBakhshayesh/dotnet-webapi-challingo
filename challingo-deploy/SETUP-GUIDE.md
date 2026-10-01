@@ -392,6 +392,25 @@ Redis__Enabled=true
 REDIS_PASSWORD=<strong-random>
 ```
 
+### 7.5.2 Rewarded ads and Plus (`api.env` + app build)
+
+Challingo grants ad rewards and Plus **only from the server**: AdMob's signed callback and RevenueCat's subscriber record.
+
+**AdMob (rewarded ads: +1 run and +5 stars, max 3 a day)**
+1. Create the app and a **Rewarded** ad unit for iOS and for Android in AdMob.
+2. On each rewarded ad unit, turn on **Server-side verification** with the URL `https://<api-host>/api/webhooks/admob/ssv`.
+3. Optional: `Monetization__AdMob__AllowedAdUnits=<ios unit id>,<android unit id>` (other units are ignored).
+4. App build: `--dart-define=ADMOB_REWARDED_IOS=… --dart-define=ADMOB_REWARDED_ANDROID=…`, the iOS app id in `ios/Flutter/{Debug,Release}.xcconfig` (`ADMOB_APP_ID`), the Android app id with `-PadmobAppId=…` (or edit `android/app/build.gradle.kts`).
+5. Google's test units (the defaults) never call the verification URL; with `Monetization__AllowDevRewards=true` (development only) the app asks the API for a test reward instead.
+6. Ads need a consent choice first (Google UMP); configure the GDPR / US-states messages in AdMob → Privacy & messaging.
+
+**RevenueCat (Plus: unlimited ranked runs)**
+1. Create the products (e.g. monthly, yearly) in App Store Connect and Google Play, add them in RevenueCat, attach them to the entitlement **`plus`** and to the current offering.
+2. RevenueCat → Integrations → Webhooks: URL `https://<api-host>/api/webhooks/revenuecat`, Authorization header value = `Monetization__RevenueCat__WebhookAuthorization`.
+3. `Monetization__RevenueCat__SecretApiKey=sk_…` (secret key; the API re-reads subscribers with it).
+4. App build: `--dart-define=RC_APPLE_KEY=appl_… --dart-define=RC_GOOGLE_KEY=goog_…` (public SDK keys). The app user id is the player id.
+5. `Monetization__AllowDevRewards` must be **false** in production (it enables test ads and test Plus).
+
 ### 7.6 Sync to `server-files/.env`
 
 ```powershell

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import '../../core/session/session_controller.dart';
 import '../../core/theme/app_colors.dart';
 import '../../widgets/challingo/challingo_widgets.dart';
+import '../competition/monetization_providers.dart';
 import '../welcome/email_code_sheet.dart';
 
 /// Name, time zone / country, email upgrade and sign-out.
@@ -12,6 +14,8 @@ class ProfileSheet extends ConsumerStatefulWidget {
 
   static Future<void> show(BuildContext context) => showModalBottomSheet(
     context: context,
+    // Above the bottom bar, not inside the tab.
+    useRootNavigator: true,
     isScrollControlled: true,
     backgroundColor: Colors.white,
     shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
@@ -77,6 +81,15 @@ class _ProfileSheetState extends ConsumerState<ProfileSheet> {
         _InfoRow(label: 'Email', value: me.email ?? 'Not added (guest)'),
         const SizedBox(height: 16),
         PillButton(label: 'Save', loading: _saving, onPressed: _save),
+        const SizedBox(height: 12),
+        PillButton(
+          label: (ref.watch(monetizationProvider).value?.plusActive ?? false) ? 'Plus: active' : 'Challingo Plus',
+          style: PillStyle.secondary,
+          onPressed: () {
+            Navigator.pop(context);
+            context.push('/plus');
+          },
+        ),
         const SizedBox(height: 12),
         if (me.isGuest)
           PillButton(label: 'Add email', style: PillStyle.secondary, onPressed: () => EmailCodeSheet.show(context, EmailCodePurpose.linkGuest))

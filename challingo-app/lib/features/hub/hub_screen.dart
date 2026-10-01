@@ -13,6 +13,7 @@ import '../boards/board_widgets.dart';
 import '../competition/competition_providers.dart';
 import '../competition/competition_widgets.dart';
 import '../lottery/lottery_widgets.dart';
+import '../plus/run_unlock.dart';
 import '../play/game_catalog.dart';
 import '../welcome/email_code_sheet.dart';
 import 'profile_sheet.dart';
@@ -66,12 +67,20 @@ class HubScreen extends ConsumerWidget {
                   if (value.grand.isNotEmpty) ...[_GrandCard(lobby: value, serverNow: serverNow), const SizedBox(height: 20)],
                   Row(children: [
                     Expanded(child: Text('RANKED RUNS', style: text.labelSmall)),
-                    Text(
-                      value.rankedAllowed == null
-                          ? 'Unlimited runs'
-                          : '${(value.rankedAllowed! - value.rankedUsed).clamp(0, 99)} of ${value.rankedAllowed} free runs left today',
-                      style: text.bodySmall,
-                    ),
+                    if (value.plus) ...[
+                      const PlusBadge(),
+                      const SizedBox(width: 6),
+                      Text('unlimited runs', style: text.bodySmall),
+                    ] else ...[
+                      Text('${(value.rankedAllowed! - value.rankedUsed).clamp(0, 99)} runs left', style: text.bodySmall),
+                      if (value.canWatchAd)
+                        TextButton.icon(
+                          onPressed: () => watchAdForRun(context, ref),
+                          style: TextButton.styleFrom(visualDensity: VisualDensity.compact, padding: const EdgeInsets.only(left: 8)),
+                          icon: const Icon(Icons.play_circle_outline_rounded, size: 18, color: AppColors.violet),
+                          label: const Text('+1 run', style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.violet)),
+                        ),
+                    ],
                   ]),
                   const SizedBox(height: 10),
                   for (final game in value.games) ...[
@@ -193,7 +202,9 @@ class _RunAction extends StatelessWidget {
         onTap: () => playChallenge(context, current),
       );
     }
-    if (open) return const _Countdown(label: 'Open', value: 'no free runs');
+    if (open) {
+      return _JoinButton(label: 'Get runs', time: 'ad or Plus', onTap: () => RunUnlockSheet.show(context));
+    }
     final next = game.next;
     return _Countdown(label: 'Next run', value: next == null ? 'soon' : formatDuration(next.opensAtUtc.difference(now)));
   }

@@ -149,6 +149,9 @@ class Lobby {
     required this.isGrandDay,
     required this.rankedUsed,
     required this.rankedAllowed,
+    required this.adsToday,
+    required this.adsPerDay,
+    required this.plus,
     required this.stars,
     required this.lottery,
   });
@@ -166,10 +169,17 @@ class Lobby {
 
   /// Null = unlimited (Plus).
   final int? rankedAllowed;
+
+  /// Rewarded ads counted today (each adds a run and stars) and the daily maximum.
+  final int adsToday;
+  final int adsPerDay;
+  final bool plus;
   final int stars;
   final Lottery? lottery;
 
   bool get hasRankedEntry => rankedAllowed == null || rankedUsed < rankedAllowed!;
+
+  bool get canWatchAd => !plus && adsToday < adsPerDay;
 
   GameLobby? game(String key) => games.where((g) => g.gameKey == key).firstOrNull;
 
@@ -185,6 +195,9 @@ class Lobby {
       isGrandDay: json['isGrandDay'] as bool? ?? false,
       rankedUsed: _int(entries['used']),
       rankedAllowed: (entries['allowed'] as num?)?.toInt(),
+      adsToday: _int(entries['adsToday'] ?? 0),
+      adsPerDay: _int(entries['adsPerDay'] ?? 0),
+      plus: entries['plus'] as bool? ?? false,
       stars: _int(json['stars']),
       lottery: json['lottery'] == null ? null : Lottery.fromJson(_map(json['lottery'])),
     );
@@ -400,4 +413,49 @@ class GroupInvite {
 
   factory GroupInvite.fromJson(Map<String, dynamic> json) =>
       GroupInvite(name: json['name'] as String, memberCount: _int(json['memberCount']), alreadyMember: json['alreadyMember'] as bool? ?? false);
+}
+
+class MonetizationStatus {
+  const MonetizationStatus({
+    required this.plusActive,
+    required this.plusExpiresAtUtc,
+    required this.plusStore,
+    required this.adsToday,
+    required this.adsPerDay,
+    required this.runsPerAd,
+    required this.starsPerAd,
+    required this.rewardUserId,
+    required this.devRewards,
+  });
+
+  final bool plusActive;
+  final DateTime? plusExpiresAtUtc;
+  final String? plusStore;
+  final int adsToday;
+  final int adsPerDay;
+  final int runsPerAd;
+  final int starsPerAd;
+
+  /// Passed to AdMob (server-side verification) and RevenueCat.
+  final String rewardUserId;
+
+  /// The API allows test grants (development).
+  final bool devRewards;
+
+  int get adsLeft => (adsPerDay - adsToday).clamp(0, adsPerDay);
+
+  factory MonetizationStatus.fromJson(Map<String, dynamic> json) {
+    final plus = _map(json['plus']);
+    return MonetizationStatus(
+      plusActive: plus['active'] as bool? ?? false,
+      plusExpiresAtUtc: plus['expiresAtUtc'] == null ? null : _date(plus['expiresAtUtc']),
+      plusStore: plus['store'] as String?,
+      adsToday: _int(json['adsToday']),
+      adsPerDay: _int(json['adsPerDay']),
+      runsPerAd: _int(json['runsPerAd']),
+      starsPerAd: _int(json['starsPerAd']),
+      rewardUserId: json['rewardUserId'] as String,
+      devRewards: json['devRewards'] as bool? ?? false,
+    );
+  }
 }

@@ -8,6 +8,7 @@ import '../../features/groups/groups_screen.dart';
 import '../../features/hub/game_screen.dart';
 import '../../features/hub/hub_screen.dart';
 import '../../features/lottery/lottery_screen.dart';
+import '../../features/plus/plus_screen.dart';
 import '../../features/shell/app_shell.dart';
 import '../../features/play/game_catalog.dart';
 import '../../features/play/play_screen.dart';
@@ -63,6 +64,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/game/:key', builder: (context, state) => GameScreen(gameKey: state.pathParameters['key']!)),
       GoRoute(path: '/lottery', builder: (context, state) => const LotteryScreen()),
+      GoRoute(path: '/plus', builder: (context, state) => const PlusScreen()),
       GoRoute(path: '/boards/round/:id', builder: (context, state) => RoundBoardScreen(challengeId: state.pathParameters['id']!)),
       GoRoute(path: '/groups/:id', builder: (context, state) => GroupDetailScreen(groupId: state.pathParameters['id']!)),
       GoRoute(path: '/g/:code', builder: (context, state) => InviteScreen(code: state.pathParameters['code']!)),

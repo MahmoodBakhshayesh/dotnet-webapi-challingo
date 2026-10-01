@@ -15,6 +15,8 @@ class EmailCodeSheet extends ConsumerStatefulWidget {
 
   static Future<bool?> show(BuildContext context, EmailCodePurpose purpose) => showModalBottomSheet<bool>(
     context: context,
+    // Above the bottom bar, not inside the tab.
+    useRootNavigator: true,
     isScrollControlled: true,
     backgroundColor: Colors.white,
     shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),

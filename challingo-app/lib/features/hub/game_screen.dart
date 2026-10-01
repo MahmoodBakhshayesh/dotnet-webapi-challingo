@@ -11,6 +11,7 @@ import '../boards/boards_screen.dart';
 import '../competition/competition_providers.dart';
 import '../competition/competition_widgets.dart';
 import '../play/game_catalog.dart';
+import '../plus/run_unlock.dart';
 
 /// One game: its live run, the next one, practice, and its day / week / month / all-time boards.
 class GameScreen extends ConsumerWidget {
@@ -96,10 +97,12 @@ class _RunPanel extends StatelessWidget {
       note = 'Your clock is running.';
     } else if (open && lobby.hasRankedEntry) {
       action = PillButton(label: 'Join run', height: 52, onPressed: () => playChallenge(context, current));
-      note = lobby.rankedAllowed == null ? 'Every run adds to your day, week and month.' : 'Uses 1 of your ${lobby.rankedAllowed} free runs today. Every run adds to your totals.';
+      note = lobby.plus
+          ? 'Plus: unlimited runs. Every run adds to your day, week and month.'
+          : 'Uses 1 of your ${lobby.rankedAllowed! - lobby.rankedUsed} runs left today. Every run adds to your totals.';
     } else if (open) {
-      action = const PillButton(label: 'No free runs left today', height: 52, onPressed: null);
-      note = 'More runs with ads or Plus are coming soon.';
+      action = PillButton(label: 'Get more runs', height: 52, onPressed: () => RunUnlockSheet.show(context));
+      note = lobby.canWatchAd ? 'Watch an ad (+1 run) or go Plus for unlimited runs.' : 'Go Plus for unlimited runs, or come back tomorrow.';
     } else {
       action = const PillButton(label: 'Waiting for the next run', height: 52, onPressed: null);
       note = 'Runs open at fixed UTC times.';
