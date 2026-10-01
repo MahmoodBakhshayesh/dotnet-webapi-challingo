@@ -185,6 +185,8 @@ $order = @(
 
     'Redis__Enabled', 'Redis__ConnectionString', 'Redis__InstanceName', 'REDIS_PASSWORD', 'REDIS_HOST_PORT', '',
 
+    'Competition__FreeRankedRoundsPerDay', 'Competition__SmallRoundThreshold', 'Competition__ScheduleDaysAhead', 'Competition__InviteBaseUrl', 'Competition__AllowAdminTimeTravel', '',
+
     'Realtime__Enabled', 'Realtime__HubPath', 'Realtime__KeepAliveSeconds', 'Realtime__ClientTimeoutSeconds', 'Realtime__EnableDetailedErrors', '',
 
     'Email__Enabled', 'Email__FromAddress', 'Email__FromDisplayName', 'Email__SmtpHost', 'Email__SmtpPort', 'Email__SmtpUsername', 'Email__SmtpPassword', 'Email__OtpSubject', '',

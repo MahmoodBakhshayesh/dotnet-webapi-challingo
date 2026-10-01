@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json.Linq;
+using Challingo.Core.Competition;
 using Challingo.Core.Domain.Entities;
 using Challingo.Core.Domain.Enums;
 using Challingo.Core.Domain.RepositoryInterfaces;
@@ -20,6 +21,7 @@ public sealed class ChallengeService(
     IChallengeRepository challenges,
     IPuzzleGameRegistry games,
     IAttemptTokenService tokens,
+    ICompetitionService competition,
     IOptions<PuzzleOptions> options,
     TimeProvider clock) : IChallengeService
 {
@@ -89,6 +91,10 @@ public sealed class ChallengeService(
         var resumed = attempt is not null;
         if (attempt is null)
         {
+            var entry = challenge.Kind == ChallengeKind.Practice ? null : await competition.CheckEntryAsync(userId, challenge, now);
+            if (entry?.Error is { } entryError)
+                return AppResponse.RequestError(entryError, entry.StatusCode);
+
             attempt = new Attempt
             {
                 Id = Guid.CreateVersion7(),
@@ -96,6 +102,8 @@ public sealed class ChallengeService(
                 UserId = userId,
                 Status = AttemptStatus.InProgress,
                 StartedAtUtc = now,
+                CountryCode = entry?.CountryCode,
+                CountsForDay = entry?.CountsForDay ?? false,
             };
             if (!await challenges.TryAddAttemptAsync(attempt))
             {
@@ -160,6 +168,7 @@ public sealed class ChallengeService(
             attempt.SubmittedAtUtc = now;
             attempt.ElapsedMs = (long)(now - attempt.StartedAtUtc).TotalMilliseconds;
             attempt.ResultJson = result.ResultJson;
+            attempt.RankScore = RankScoreFor(challenge, attempt);
             saved = await challenges.TryCompleteAttemptAsync(attempt, expected);
         }
         else
@@ -170,6 +179,7 @@ public sealed class ChallengeService(
         if (!saved)
             return AppResponse.RequestError("Another move was processed at the same time. Reload and try again.", 409);
 
+        var standing = attempt.Status == AttemptStatus.InProgress ? null : await competition.OnAttemptCompletedAsync(attempt, challenge);
         return AppResponse.Ok(new MoveAttemptResponse
         {
             AttemptId = attempt.Id,
@@ -177,6 +187,7 @@ public sealed class ChallengeService(
             Response = JToken.Parse(result.ResponseJson),
             MoveCount = attempt.MoveCount,
             ElapsedMs = attempt.Status == AttemptStatus.InProgress ? null : attempt.ElapsedMs,
+            Standing = standing,
         });
     }
 
@@ -230,9 +241,12 @@ public sealed class ChallengeService(
         attempt.Status = verdict.Outcome == PuzzleOutcome.Solved ? AttemptStatus.Solved : AttemptStatus.Failed;
         attempt.ElapsedMs = (long)(now - attempt.StartedAtUtc).TotalMilliseconds;
         attempt.ResultJson = verdict.ResultJson;
+        attempt.RankScore = RankScoreFor(challenge, attempt);
 
         if (!await challenges.TryCompleteAttemptAsync(attempt, expected))
             return AppResponse.RequestError("This attempt was already submitted.", 409);
+
+        var standing = await competition.OnAttemptCompletedAsync(attempt, challenge);
 
         return AppResponse.Ok(new SubmitAttemptResponse
         {
@@ -242,8 +256,14 @@ public sealed class ChallengeService(
             ElapsedMs = attempt.ElapsedMs,
             Message = verdict.Message,
             Result = verdict.ResultJson is null ? null : JToken.Parse(verdict.ResultJson),
+            Standing = standing,
         });
     }
+
+    private static double? RankScoreFor(Challenge challenge, Attempt attempt) =>
+        challenge.Kind == ChallengeKind.Practice
+            ? null
+            : RankScore.Compute(challenge.Puzzle!.GameKey, attempt.Status, attempt.ElapsedMs, attempt.ResultJson);
 
     private async Task<(Attempt? Attempt, ActionResult? Error)> LoadOpenAttemptAsync(Guid userId, Guid attemptId, string? token)
     {

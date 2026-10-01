@@ -408,6 +408,18 @@ write_kv() {
 
   write_kv REDIS_PASSWORD
 
+  echo
+
+  write_kv Competition__FreeRankedRoundsPerDay
+
+  write_kv Competition__SmallRoundThreshold
+
+  write_kv Competition__ScheduleDaysAhead
+
+  write_kv Competition__InviteBaseUrl
+
+  write_kv Competition__AllowAdminTimeTravel
+
   write_kv REDIS_HOST_PORT
 
   echo

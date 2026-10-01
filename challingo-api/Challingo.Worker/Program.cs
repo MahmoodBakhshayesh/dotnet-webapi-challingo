@@ -2,6 +2,12 @@
 using Challingo.Worker.Jobs;
 using Challingo.Worker.Scheduling;
 
+// English only, and the same dates and numbers on every machine (a host locale such as en_IR would switch calendars).
+System.Globalization.CultureInfo.DefaultThreadCurrentCulture = System.Globalization.CultureInfo.InvariantCulture;
+System.Globalization.CultureInfo.DefaultThreadCurrentUICulture = System.Globalization.CultureInfo.InvariantCulture;
+System.Globalization.CultureInfo.CurrentCulture = System.Globalization.CultureInfo.InvariantCulture;
+System.Globalization.CultureInfo.CurrentUICulture = System.Globalization.CultureInfo.InvariantCulture;
+
 try
 {
     foreach (var path in FindEnvFilePaths())
@@ -18,6 +24,9 @@ try
     builder.AddWorkerScheduler((q, scheduler) =>
     {
         q.AddScaffoldJob<SchedulerHeartbeatJob>(scheduler, "Heartbeat", "0 0/5 * * * ?", enabledByDefault: false);
+        // Competition: plan ahead every 15 minutes; close rounds a few seconds after each minute.
+        q.AddScaffoldJob<CompetitionScheduleJob>(scheduler, "CompetitionSchedule", "0 1/15 * * * ?");
+        q.AddScaffoldJob<CompetitionCloseJob>(scheduler, "CompetitionClose", "5 * * * * ?");
     });
 
     builder.Services.AddHostedService<WorkerDatabaseWarmupJob>();

@@ -25,6 +25,10 @@ namespace Challingo.Infrastructure.DbContexts
         public DbSet<Challenge> Challenges { set; get; }
         public DbSet<Attempt> Attempts { set; get; }
         public DbSet<PuzzleContent> PuzzleContents { set; get; }
+        public DbSet<StarTransaction> StarTransactions { set; get; }
+        public DbSet<PeriodClose> PeriodCloses { set; get; }
+        public DbSet<Group> Groups { set; get; }
+        public DbSet<GroupMember> GroupMembers { set; get; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -39,6 +43,10 @@ namespace Challingo.Infrastructure.DbContexts
             builder.ApplyConfiguration(new Configurations.ChallengeConfiguration());
             builder.ApplyConfiguration(new Configurations.AttemptConfiguration());
             builder.ApplyConfiguration(new Configurations.PuzzleContentConfiguration());
+            builder.ApplyConfiguration(new Configurations.StarTransactionConfiguration());
+            builder.ApplyConfiguration(new Configurations.PeriodCloseConfiguration());
+            builder.ApplyConfiguration(new Configurations.GroupConfiguration());
+            builder.ApplyConfiguration(new Configurations.GroupMemberConfiguration());
         }
 
         public override int SaveChanges() =>

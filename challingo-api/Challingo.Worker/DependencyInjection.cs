@@ -1,4 +1,5 @@
 ﻿using Challingo.Core.Settings;
+using Challingo.Infrastructure;
 using Challingo.Infrastructure.DbContexts;
 using Challingo.Infrastructure.Email;
 using Challingo.Infrastructure.Realtime;
@@ -46,6 +47,10 @@ public static class DependencyInjection
         // Leaderboards + cache (Redis__Enabled) and pushes to SignalR clients through the Redis backplane.
         builder.Services.AddScaffoldRedis(builder.Configuration);
         builder.Services.AddScaffoldRealtimePublisher(builder.Configuration);
+
+        // Game engine (to generate scheduled puzzles) and competition jobs.
+        builder.Services.AddChallingoGameEngine(AppContext.BaseDirectory);
+        builder.Services.AddChallingoCompetition();
 
         return builder;
     }

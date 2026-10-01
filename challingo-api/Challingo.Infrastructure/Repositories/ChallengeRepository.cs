@@ -54,6 +54,7 @@ public sealed class ChallengeRepository(AppDbContext db) : IChallengeRepository
                 .SetProperty(x => x.SubmissionJson, attempt.SubmissionJson)
                 .SetProperty(x => x.StateJson, attempt.StateJson)
                 .SetProperty(x => x.MoveCount, attempt.MoveCount)
+                .SetProperty(x => x.RankScore, attempt.RankScore)
                 .SetProperty(x => x.UpdatedAt, now), ct);
         return updated == 1;
     }

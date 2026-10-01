@@ -21,4 +21,9 @@
     <ProjectReference Include="..\Challingo.Infrastructure\Challingo.Infrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The word list lives with the API; the Worker needs it to generate Word Hunt rounds. -->
+    <Content Include="..\Challingo.Api\Data\words\**\*" Link="Data\words\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

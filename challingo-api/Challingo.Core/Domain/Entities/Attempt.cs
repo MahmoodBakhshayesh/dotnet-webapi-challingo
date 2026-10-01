@@ -27,4 +27,17 @@ public class Attempt : BaseEntity
 
     /// <summary>Complete-but-wrong submissions in a race game (the attempt stays open after each).</summary>
     public int IncorrectSubmissions { get; set; }
+
+    /// <summary>Country at start time (snapshot, so later zone changes do not move past results).</summary>
+    public string? CountryCode { get; set; }
+
+    /// <summary>True for the player's first ranked round of the UTC day: only that one feeds the daily and weekly boards.</summary>
+    public bool CountsForDay { get; set; }
+
+    /// <summary>Sortable ranking key (higher is better), set when the attempt completes.</summary>
+    public double? RankScore { get; set; }
+
+    /// <summary>Final 0–1000 points and rank, set when the challenge is finalized.</summary>
+    public int? Points { get; set; }
+    public int? Rank { get; set; }
 }

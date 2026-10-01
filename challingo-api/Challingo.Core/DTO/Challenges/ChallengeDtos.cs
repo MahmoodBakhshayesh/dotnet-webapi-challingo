@@ -1,4 +1,5 @@
 using Challingo.Core.Domain.Enums;
+using Challingo.Core.DTO.Competition;
 using Newtonsoft.Json.Linq;
 
 namespace Challingo.Core.DTO.Challenges;
@@ -60,6 +61,9 @@ public sealed class MoveAttemptResponse
 
     /// <summary>Set once the move ended the attempt.</summary>
     public long? ElapsedMs { get; init; }
+
+    /// <summary>Live rank once a move finished a shared challenge.</summary>
+    public StandingDto? Standing { get; init; }
 }
 
 public sealed class SubmitAttemptRequest
@@ -87,4 +91,7 @@ public sealed class SubmitAttemptResponse
 
     /// <summary>The game's raw result (word points, guesses, moves…).</summary>
     public JToken? Result { get; init; }
+
+    /// <summary>Live rank for a shared (daily, ranked, Grand) challenge.</summary>
+    public StandingDto? Standing { get; init; }
 }
