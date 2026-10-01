@@ -1,5 +1,8 @@
+using Challingo.Core.Settings;
+
 namespace Challingo.Core.Competition;
 
+/// <summary>Values are stored as ints in API responses: append new periods at the end.</summary>
 public enum BoardPeriod
 {
     Round,
@@ -7,6 +10,7 @@ public enum BoardPeriod
     Week,
     Grand,
     AllTime,
+    Month,
 }
 
 /// <summary>Stars for the top 3 of each board when it closes (ties share the place). Stars are never sold.</summary>
@@ -15,20 +19,23 @@ public static class StarRewards
     public const int PerRewardedAd = 5;
     public const int MaxRewardedAdsPerDay = 3;
 
-    /// <summary>Stars for <paramref name="place"/> (1–3); 0 otherwise. The Grand board pays like a daily board.</summary>
-    public static int For(BoardPeriod period, bool global, int place)
+    /// <summary>Stars for <paramref name="place"/> (1–3) on a closing board; 0 otherwise (runs and all-time pay nothing).</summary>
+    public static int For(StarAmounts amounts, BoardPeriod period, bool global, int place)
     {
-        int[] table = (period, global) switch
+        var table = (period, global) switch
         {
-            (BoardPeriod.Round, true) => [10, 6, 3],
-            (BoardPeriod.Round, false) => [3, 2, 1],
-            (BoardPeriod.Day or BoardPeriod.Grand, true) => [30, 20, 10],
-            (BoardPeriod.Day or BoardPeriod.Grand, false) => [10, 6, 3],
-            (BoardPeriod.Week, true) => [300, 200, 100],
-            (BoardPeriod.Week, false) => [100, 60, 30],
-            _ => [],
+            (BoardPeriod.Day, true) => amounts.DayGlobal,
+            (BoardPeriod.Day, false) => amounts.DayCountry,
+            (BoardPeriod.Week, true) => amounts.WeekGlobal,
+            (BoardPeriod.Week, false) => amounts.WeekCountry,
+            (BoardPeriod.Month, true) => amounts.MonthGlobal,
+            (BoardPeriod.Month, false) => amounts.MonthCountry,
+            (BoardPeriod.Grand, true) => amounts.GrandGlobal,
+            (BoardPeriod.Grand, false) => amounts.GrandCountry,
+            _ => "",
         };
-        return place >= 1 && place <= table.Length ? table[place - 1] : 0;
+        var values = table.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return place >= 1 && place <= values.Length && int.TryParse(values[place - 1], out var stars) && stars > 0 ? stars : 0;
     }
 
     /// <summary>Places 1–3 by score, ties sharing a place (1, 1, 3…). Zero scores never win stars.</summary>

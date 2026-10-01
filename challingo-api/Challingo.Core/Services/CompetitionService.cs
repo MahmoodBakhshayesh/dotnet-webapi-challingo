@@ -7,16 +7,19 @@ using Challingo.Core.Domain.RepositoryInterfaces;
 using Challingo.Core.DTO.Competition;
 using Challingo.Core.DTO.Leaderboard;
 using Challingo.Core.Players;
+using Challingo.Core.Puzzles;
 using Challingo.Core.ServiceInterfaces;
 using Challingo.Core.Settings;
 
 namespace Challingo.Core.Services;
 
-/// <summary>Entry rules, live boards and the player's view of today's competition.</summary>
+/// <summary>Entry rules, live boards and the player's lobby (every game's runs, Grand, lottery).</summary>
 public sealed class CompetitionService(
     ICompetitionRepository competition,
     IPlayerProfileRepository profiles,
     IGroupRepository groups,
+    IPuzzleGameRegistry games,
+    ILotteryService lottery,
     ILeaderboardStore boards,
     IRealtimeNotifier realtime,
     IOptions<CompetitionOptions> options,
@@ -29,31 +32,21 @@ public sealed class CompetitionService(
         var profile = await profiles.GetByUserIdAsync(userId);
         if (profile is null)
             return EntryDecision.Deny("Player profile not found.", 404);
+        if (nowUtc >= challenge.JoinClosesAtUtc)
+            return EntryDecision.Deny("This run is closed to new players. The next one starts soon.", 410);
 
-        var zone = PlayerProfileRules.EffectiveTimeZone(profile, nowUtc);
-        var country = PlayerTimeZones.CountryFor(zone);
-
-        switch (challenge.Kind)
+        var country = PlayerTimeZones.CountryFor(PlayerProfileRules.EffectiveTimeZone(profile, nowUtc));
+        if (challenge.Kind == ChallengeKind.Ranked
+            && AllowedRankedRuns(userId) is { } allowed
+            && await competition.CountRankedEntriesAsync(userId, challenge.PeriodKey!) >= allowed)
         {
-            case ChallengeKind.Daily:
-                var localDate = PlayerTimeZones.LocalDate(zone, nowUtc);
-                if (challenge.LocalDate != localDate)
-                    return EntryDecision.Deny($"This daily puzzle is for {CompetitionCalendar.DayKey(challenge.LocalDate!.Value)}; it is {CompetitionCalendar.DayKey(localDate)} where you are.", 409);
-                return new EntryDecision { CountryCode = country };
-
-            case ChallengeKind.Ranked:
-                var used = await competition.CountRankedEntriesAsync(userId, challenge.PeriodKey!);
-                if (used >= AllowedRankedRounds(userId))
-                    return EntryDecision.Deny("You have used today's ranked rounds. Watch an ad or go Plus to play more.", 402);
-                return new EntryDecision { CountryCode = country, CountsForDay = used == 0 };
-
-            default:
-                return new EntryDecision { CountryCode = country };
+            return EntryDecision.Deny("You have used today's free runs. Watch an ad or go Plus to play more.", 402);
         }
+        return new EntryDecision { CountryCode = country };
     }
 
-    // Ads and Plus add rounds in Stage 3; until then everyone has the free allowance.
-    private int AllowedRankedRounds(Guid userId) => Options.FreeRankedRoundsPerDay;
+    // Ads and Plus add runs in Stage 3 (Plus = unlimited, returns null); until then everyone has the free allowance.
+    private int? AllowedRankedRuns(Guid userId) => Options.FreeRankedRunsPerDay;
 
     public async Task<StandingDto?> OnAttemptCompletedAsync(Attempt attempt, Challenge challenge)
     {
@@ -61,23 +54,22 @@ public sealed class CompetitionService(
             return null;
 
         var member = attempt.UserId.ToString();
-        await boards.SetScoreAsync(BoardKeys.Round(challenge.Id), member, score);
+        await boards.SetScoreAsync(BoardKeys.Run(challenge.Id), member, score);
         if (attempt.CountryCode is { } country)
-            await boards.SetScoreAsync(BoardKeys.Round(challenge.Id, country), member, score);
+            await boards.SetScoreAsync(BoardKeys.Run(challenge.Id, country), member, score);
 
-        var gameKey = challenge.Puzzle?.GameKey ?? "";
         if (challenge.Kind == ChallengeKind.Grand && challenge.WeekKey is { } week)
         {
-            // Live Grand board: par points until the day closes and percentiles are known.
-            var par = PointsCalculator.ParPoints(gameKey, attempt.Status, attempt.ElapsedMs, attempt.ResultJson);
+            // Live Grand board: par points until Sunday ends and percentiles are known.
+            var par = PointsCalculator.ParPoints(challenge.GameKey, attempt.Status, attempt.ElapsedMs, attempt.ResultJson);
             await boards.IncrementAsync(BoardKeys.Grand(week), member, par);
             if (attempt.CountryCode is { } grandCountry)
                 await boards.IncrementAsync(BoardKeys.Grand(week, grandCountry), member, par);
             await realtime.ToGroupAsync(BoardKeys.GrandTopic(week), "board.changed", new { period = BoardPeriod.Grand, key = week });
         }
 
-        var entry = await boards.GetEntryAsync(BoardKeys.Round(challenge.Id), member);
-        var players = await boards.CountAsync(BoardKeys.Round(challenge.Id));
+        var entry = await boards.GetEntryAsync(BoardKeys.Run(challenge.Id), member);
+        var players = await boards.CountAsync(BoardKeys.Run(challenge.Id));
         await realtime.ToGroupAsync(BoardKeys.Topic(challenge.Id), "board.changed", new { challengeId = challenge.Id, players });
 
         var rank = entry?.Rank ?? players;
@@ -85,7 +77,7 @@ public sealed class CompetitionService(
         {
             Rank = rank,
             Players = players,
-            ProvisionalPoints = ProvisionalPoints(gameKey, rank, players, attempt),
+            ProvisionalPoints = ProvisionalPoints(challenge.GameKey, rank, players, attempt),
         };
     }
 
@@ -94,57 +86,93 @@ public sealed class CompetitionService(
             ? PointsCalculator.Percentile(rank, players)
             : PointsCalculator.ParPoints(gameKey, attempt.Status, attempt.ElapsedMs, attempt.ResultJson);
 
-    public async Task<ActionResult<TodayResponse>> GetTodayAsync(Guid userId)
+    public async Task<ActionResult<LobbyResponse>> GetLobbyAsync(Guid userId)
     {
-        var profile = await profiles.GetByUserIdAsync(userId);
-        if (profile is null)
+        if (await profiles.GetByUserIdAsync(userId) is null)
             return AppResponse.NotFound("Player profile not found.");
 
         var now = clock.GetUtcNow().UtcDateTime;
         var today = CompetitionCalendar.UtcDate(now);
-        var zone = PlayerProfileRules.EffectiveTimeZone(profile, now);
-        var localDate = PlayerTimeZones.LocalDate(zone, now);
+        var dayKey = CompetitionCalendar.DayKey(today);
         var weekKey = CompetitionCalendar.WeekKey(today);
 
-        // Today's rounds plus enough ahead to find the next round across Sunday.
-        var window = await competition.ListChallengesAsync(
-            CompetitionCalendar.DayStartUtc(today), CompetitionCalendar.DayStartUtc(today).AddDays(2));
-        var rounds = window
-            .Where(c => c.Kind == ChallengeKind.Ranked && c.PeriodKey == CompetitionCalendar.DayKey(today))
-            .OrderBy(c => c.Sequence).ToList();
-        var nextRound = window
-            .Where(c => c.Kind == ChallengeKind.Ranked && c.OpensAtUtc > now)
-            .OrderBy(c => c.OpensAtUtc).FirstOrDefault();
-        var daily = await competition.GetDailyAsync(localDate);
+        // Runs open now and the next one per game: the longest timer is a few hours.
+        var window = (await competition.ListChallengesAsync(now.AddMinutes(-1), now.AddHours(6)))
+            .Where(c => c.Kind == ChallengeKind.Ranked).ToList();
         var grand = await competition.GetGrandAsync(weekKey);
+        var shown = window.Concat(grand).Select(c => c.Id).ToList();
+        var mine = (await competition.GetUserAttemptsAsync(userId, shown)).ToDictionary(a => a.ChallengeId);
+        var runsToday = await competition.CountRankedEntriesByGameAsync(userId, dayKey);
+        var member = userId.ToString();
 
-        var shown = rounds.Concat(grand).Append(daily).Append(nextRound).OfType<Challenge>().DistinctBy(c => c.Id).ToList();
-        var mine = (await competition.GetUserAttemptsAsync(userId, shown.Select(c => c.Id).ToList()))
-            .ToDictionary(a => a.ChallengeId);
+        var lobby = new List<GameLobbyDto>();
+        foreach (var gameKey in games.Keys.Order())
+        {
+            if (RunTimetable.For(gameKey, Options) is not { } run)
+                continue;
+            var runs = window.Where(c => c.GameKey == gameKey).OrderBy(c => c.OpensAtUtc).ToList();
+            var current = runs.FirstOrDefault(c => c.OpensAtUtc <= now && now < c.JoinClosesAtUtc);
+            var next = runs.FirstOrDefault(c => c.OpensAtUtc > now);
+            var day = await boards.GetEntryAsync(BoardKeys.Game(gameKey, BoardPeriod.Day, dayKey), member);
+            lobby.Add(new GameLobbyDto
+            {
+                GameKey = gameKey,
+                EveryMinutes = (int)run.Every.TotalMinutes,
+                Current = current is null ? null : Card(current, now, mine),
+                Next = next is null ? null : Card(next, now, mine),
+                DayPoints = day?.Score,
+                DayRank = day?.Rank,
+                RunsToday = runsToday.GetValueOrDefault(gameKey),
+            });
+        }
 
-        var used = await competition.CountRankedEntriesAsync(userId, CompetitionCalendar.DayKey(today));
-        var featured = await competition.GetFeaturedGamesAsync(weekKey);
-
-        return AppResponse.Ok(new TodayResponse
+        var allowed = AllowedRankedRuns(userId);
+        return AppResponse.Ok(new LobbyResponse
         {
             ServerNowUtc = now,
             UtcDate = today,
-            LocalDate = localDate,
             WeekKey = weekKey,
-            IsGrandDay = CompetitionCalendar.IsGrandDay(today),
-            Rounds = rounds.Select(c => Card(c, now, mine)).ToList(),
-            NextRound = nextRound is null ? null : Card(nextRound, now, mine),
-            Daily = daily is null || CompetitionCalendar.IsGrandDay(localDate) ? null : Card(daily, now, mine),
+            MonthKey = CompetitionCalendar.MonthKey(today),
+            Games = lobby,
             Grand = grand.Select(c => Card(c, now, mine)).ToList(),
-            Featured = featured.Select(f => new FeaturedGameDto { Date = f.Date, GameKey = f.GameKey }).ToList(),
+            IsGrandDay = CompetitionCalendar.IsGrandDay(today),
             RankedEntries = new EntryAllowanceDto
             {
-                Used = used,
-                Allowed = AllowedRankedRounds(userId),
-                Free = Options.FreeRankedRoundsPerDay,
+                Used = runsToday.Values.Sum(),
+                Allowed = allowed,
+                Free = Options.FreeRankedRunsPerDay,
             },
             Stars = await competition.GetStarBalanceAsync(userId),
+            Lottery = await lottery.GetTodayAsync(userId),
         });
+    }
+
+    internal static ChallengeState StateAt(Challenge c, DateTime now) =>
+        now < c.OpensAtUtc ? ChallengeState.Upcoming : now < c.JoinClosesAtUtc ? ChallengeState.Open : ChallengeState.Closed;
+
+    internal static RunCardDto Card(Challenge c, DateTime now, IReadOnlyDictionary<Guid, Attempt> mine)
+    {
+        mine.TryGetValue(c.Id, out var attempt);
+        return new RunCardDto
+        {
+            ChallengeId = c.Id,
+            Kind = c.Kind,
+            GameKey = c.GameKey,
+            Sequence = c.Sequence,
+            OpensAtUtc = c.OpensAtUtc,
+            JoinClosesAtUtc = c.JoinClosesAtUtc,
+            ClosesAtUtc = c.ClosesAtUtc,
+            State = StateAt(c, now),
+            Finalized = c.FinalizedAtUtc is not null,
+            My = attempt is null ? null : new MyAttemptDto
+            {
+                AttemptId = attempt.Id,
+                Status = attempt.Status,
+                ElapsedMs = attempt.ElapsedMs,
+                Points = attempt.Points,
+                Rank = attempt.Rank,
+            },
+        };
     }
 
     /// <summary>"Germany" for DE; the code itself when the platform has no name for it.</summary>
@@ -160,36 +188,6 @@ public sealed class CompetitionService(
         }
     }
 
-    internal static ChallengeState StateAt(Challenge c, DateTime now) =>
-        now < c.OpensAtUtc ? ChallengeState.Upcoming : now < c.ClosesAtUtc ? ChallengeState.Open : ChallengeState.Closed;
-
-    private static ChallengeCardDto Card(Challenge c, DateTime now, IReadOnlyDictionary<Guid, Attempt> mine)
-    {
-        // Ranked games are announced one round ahead; the daily and Grand games are known all week.
-        var announced = c.Kind != ChallengeKind.Ranked || c.OpensAtUtc <= now + CompetitionCalendar.RoundLength;
-        mine.TryGetValue(c.Id, out var attempt);
-        return new ChallengeCardDto
-        {
-            ChallengeId = c.Id,
-            Kind = c.Kind,
-            Sequence = c.Sequence,
-            GameKey = announced ? c.Puzzle?.GameKey : null,
-            OpensAtUtc = c.OpensAtUtc,
-            ClosesAtUtc = c.ClosesAtUtc,
-            State = StateAt(c, now),
-            Finalized = c.FinalizedAtUtc is not null,
-            My = attempt is null ? null : new MyAttemptDto
-            {
-                AttemptId = attempt.Id,
-                Status = attempt.Status,
-                ElapsedMs = attempt.ElapsedMs,
-                Points = attempt.Points,
-                Rank = attempt.Rank,
-                CountsForDay = attempt.CountsForDay,
-            },
-        };
-    }
-
     public async Task<ActionResult<BoardResponse>> GetBoardAsync(Guid userId, BoardQuery query)
     {
         var now = clock.GetUtcNow().UtcDateTime;
@@ -200,6 +198,7 @@ public sealed class CompetitionService(
         // Resolve the board.
         Challenge? challenge = null;
         string key;
+        string? gameKey = null;
         bool final;
         switch (query.Period)
         {
@@ -207,22 +206,29 @@ public sealed class CompetitionService(
                 if (!Guid.TryParse(query.Key, out var challengeId)
                     || (challenge = await competition.GetChallengeAsync(challengeId)) is null
                     || challenge.Kind == ChallengeKind.Practice)
-                    return AppResponse.NotFound("Round not found.");
+                    return AppResponse.NotFound("Run not found.");
                 key = challenge.Id.ToString();
+                gameKey = challenge.GameKey;
                 final = challenge.FinalizedAtUtc is not null;
                 break;
-            case BoardPeriod.Day:
-                key = string.IsNullOrWhiteSpace(query.Key) ? CompetitionCalendar.DayKey(today) : query.Key.Trim();
-                final = await competition.IsPeriodClosedAsync($"day:{key}");
-                break;
-            case BoardPeriod.Week:
             case BoardPeriod.Grand:
                 key = string.IsNullOrWhiteSpace(query.Key) ? CompetitionCalendar.WeekKey(today) : query.Key.Trim();
-                final = await competition.IsPeriodClosedAsync($"week:{key}");
+                final = await competition.IsPeriodClosedAsync($"grand:{key}");
                 break;
             default:
-                key = "all";
-                final = false;
+                gameKey = query.GameKey?.Trim().ToLowerInvariant();
+                if (string.IsNullOrEmpty(gameKey) || games.Find(gameKey) is null)
+                    return AppResponse.RequestError("Pick a game for this board.");
+                key = query.Period switch
+                {
+                    _ when !string.IsNullOrWhiteSpace(query.Key) && query.Period != BoardPeriod.AllTime => query.Key.Trim(),
+                    BoardPeriod.Day => CompetitionCalendar.DayKey(today),
+                    BoardPeriod.Week => CompetitionCalendar.WeekKey(today),
+                    BoardPeriod.Month => CompetitionCalendar.MonthKey(today),
+                    _ => BoardKeys.AllTimeKey,
+                };
+                final = query.Period != BoardPeriod.AllTime
+                    && await competition.IsPeriodClosedAsync($"{query.Period.ToString().ToLowerInvariant()}:{gameKey}:{key}");
                 break;
         }
 
@@ -255,11 +261,9 @@ public sealed class CompetitionService(
 
         var board = query.Period switch
         {
-            BoardPeriod.Round => BoardKeys.Round(challenge!.Id, country),
-            BoardPeriod.Day => BoardKeys.Day(key, country),
-            BoardPeriod.Week => BoardKeys.Week(key, country),
+            BoardPeriod.Round => BoardKeys.Run(challenge!.Id, country),
             BoardPeriod.Grand => BoardKeys.Grand(key, country),
-            _ => BoardKeys.AllTime(country),
+            _ => BoardKeys.Game(gameKey!, query.Period, key, country),
         };
 
         IReadOnlyList<LeaderboardEntry> rows;
@@ -283,7 +287,7 @@ public sealed class CompetitionService(
             .OfType<string>().Select(Guid.Parse).Distinct().ToList();
         var players = await competition.GetPlayersAsync(ids);
 
-        // Round boards hold rank scores; show points (final, or what they would be if the round closed now).
+        // Run boards hold rank scores; show points (final, or what they would be if the run closed now).
         Dictionary<Guid, Attempt>? attempts = null;
         if (challenge is not null)
             attempts = (await competition.GetAttemptsForUsersAsync(challenge.Id, ids)).ToDictionary(a => a.UserId);
@@ -296,7 +300,7 @@ public sealed class CompetitionService(
             attempts?.TryGetValue(id, out attempt);
             var points = attempt is null
                 ? e.Score
-                : attempt.Points ?? ProvisionalPoints(challenge!.Puzzle?.GameKey ?? "", e.Rank, total, attempt);
+                : attempt.Points ?? ProvisionalPoints(challenge!.GameKey, e.Rank, total, attempt);
             return new BoardEntryDto
             {
                 Rank = e.Rank,
@@ -315,7 +319,7 @@ public sealed class CompetitionService(
             Key = key,
             Scope = query.Scope,
             ScopeName = scopeName,
-            GameKey = challenge?.Puzzle?.GameKey,
+            GameKey = gameKey,
             Final = final,
             Total = total,
             Entries = entries,

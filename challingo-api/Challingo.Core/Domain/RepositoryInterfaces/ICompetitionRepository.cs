@@ -11,28 +11,27 @@ public interface ICompetitionRepository
     // --- Schedule -----------------------------------------------------------------------------
     Task<HashSet<string>> GetExistingSlotsAsync(IReadOnlyCollection<string> slotKeys, CancellationToken ct = default);
 
-    /// <summary>The game of the latest ranked round opening before <paramref name="beforeUtc"/>.</summary>
-    Task<string?> GetPreviousRankedGameAsync(DateTime beforeUtc, CancellationToken ct = default);
-
-    /// <summary>This week's featured games (the daily puzzles), Monday first.</summary>
-    Task<List<(DateOnly Date, string GameKey)>> GetFeaturedGamesAsync(string weekKey, CancellationToken ct = default);
-
     /// <summary>Adds a scheduled challenge; false if its slot already exists.</summary>
     Task<bool> TryAddScheduledAsync(Puzzle puzzle, Challenge challenge, CancellationToken ct = default);
 
     /// <summary>Shared (non-practice) challenges whose window overlaps [from, to), puzzle loaded, by open time.</summary>
     Task<List<Challenge>> ListChallengesAsync(DateTime fromUtc, DateTime toUtc, CancellationToken ct = default);
 
-    Task<Challenge?> GetDailyAsync(DateOnly localDate, CancellationToken ct = default);
     Task<List<Challenge>> GetGrandAsync(string weekKey, CancellationToken ct = default);
     Task<Challenge?> GetChallengeAsync(Guid challengeId, CancellationToken ct = default);
     Task<Dictionary<Guid, int>> CountAttemptsAsync(IReadOnlyCollection<Guid> challengeIds, CancellationToken ct = default);
+
+    /// <summary>Points the challenge at a new puzzle (and its game).</summary>
     Task ReplacePuzzleAsync(Guid challengeId, Puzzle puzzle, CancellationToken ct = default);
-    Task SetWindowAsync(Guid challengeId, DateTime opensAtUtc, DateTime closesAtUtc, CancellationToken ct = default);
+
+    Task SetWindowAsync(Guid challengeId, DateTime opensAtUtc, DateTime joinClosesAtUtc, DateTime closesAtUtc, CancellationToken ct = default);
 
     // --- Entry --------------------------------------------------------------------------------
-    /// <summary>Ranked rounds the player has started on this UTC day.</summary>
+    /// <summary>Ranked runs (all games) the player has started that open on this UTC day.</summary>
     Task<int> CountRankedEntriesAsync(Guid userId, string dayKey, CancellationToken ct = default);
+
+    /// <summary>The same, per game.</summary>
+    Task<Dictionary<string, int>> CountRankedEntriesByGameAsync(Guid userId, string dayKey, CancellationToken ct = default);
 
     Task<List<Attempt>> GetUserAttemptsAsync(Guid userId, IReadOnlyCollection<Guid> challengeIds, CancellationToken ct = default);
 
@@ -51,23 +50,22 @@ public interface ICompetitionRepository
     Task SaveFinalPointsAsync(IReadOnlyList<AttemptPoints> points, CancellationToken ct = default);
     Task MarkFinalizedAsync(Guid challengeId, DateTime nowUtc, CancellationToken ct = default);
 
-    /// <summary>Days whose six ranked rounds are all finalized but the day is not closed yet.</summary>
-    Task<List<string>> GetClosableDaysAsync(CancellationToken ct = default);
+    /// <summary>Games that had ranked runs in a day / week / month (key as on <see cref="Challenge"/>).</summary>
+    Task<List<string>> GetGamesWithRunsAsync(BoardPeriod period, string key, CancellationToken ct = default);
 
-    /// <summary>Weeks whose Grand Challenge games are all finalized but the week is not closed yet.</summary>
-    Task<List<string>> GetClosableWeeksAsync(CancellationToken ct = default);
+    /// <summary>True while any ranked run of the game in that period is not finalized.</summary>
+    Task<bool> HasUnfinalizedRunsAsync(string gameKey, BoardPeriod period, string key, CancellationToken ct = default);
+
+    /// <summary>True once the week's Grand games exist and are all finalized.</summary>
+    Task<bool> IsGrandFinalizedAsync(string weekKey, CancellationToken ct = default);
 
     Task<bool> IsPeriodClosedAsync(string key, CancellationToken ct = default);
     Task MarkPeriodClosedAsync(string key, DateTime nowUtc, CancellationToken ct = default);
 
-    /// <summary>Points of each player's first ranked round of the day.</summary>
-    Task<List<PeriodResult>> GetDayResultsAsync(string dayKey, IReadOnlyCollection<Guid>? userIds = null, CancellationToken ct = default);
-
-    /// <summary>Mon–Sat counting rounds plus the Grand Challenge, per player (country of their latest attempt).</summary>
-    Task<List<PeriodResult>> GetWeekResultsAsync(string weekKey, IReadOnlyCollection<Guid>? userIds = null, CancellationToken ct = default);
+    /// <summary>Sum of a game's run points per player for a day / week / month (or all time with key "all"), country of their latest run.</summary>
+    Task<List<PeriodResult>> GetGameResultsAsync(string gameKey, BoardPeriod period, string key, IReadOnlyCollection<Guid>? userIds = null, CancellationToken ct = default);
 
     Task<List<PeriodResult>> GetGrandResultsAsync(string weekKey, IReadOnlyCollection<Guid>? userIds = null, CancellationToken ct = default);
-    Task<List<PeriodResult>> GetAllTimeResultsAsync(IReadOnlyCollection<Guid> userIds, CancellationToken ct = default);
 
     // --- Stars --------------------------------------------------------------------------------
     /// <summary>Records an award once per (player, <paramref name="refKey"/>); false if it was already paid.</summary>

@@ -12,7 +12,8 @@ public interface ICompetitionService
     /// <summary>Puts a finished attempt on the live boards and returns the player's standing.</summary>
     Task<StandingDto?> OnAttemptCompletedAsync(Attempt attempt, Challenge challenge);
 
-    Task<ActionResult<TodayResponse>> GetTodayAsync(Guid userId);
+    /// <summary>Every game's current and next run, the Grand Challenge, entries, stars and the lottery.</summary>
+    Task<ActionResult<LobbyResponse>> GetLobbyAsync(Guid userId);
     Task<ActionResult<BoardResponse>> GetBoardAsync(Guid userId, BoardQuery query);
 }
 
@@ -26,6 +27,20 @@ public interface ICompetitionCloser
 {
     /// <summary>Announces opened rounds, finalizes closed ones, closes finished days and weeks and pays stars.</summary>
     Task<CompetitionRunResponse> RunAsync(DateTime nowUtc, CancellationToken ct = default);
+}
+
+public interface ILotteryService
+{
+    Task<LotteryDto?> GetTodayAsync(Guid userId);
+    Task<ActionResult<LotteryDto>> GetTodayResultAsync(Guid userId);
+    Task<ActionResult<LotteryDto>> PickAsync(Guid userId, PickLotteryRequest request);
+    Task<ActionResult<List<LotteryDto>>> GetHistoryAsync(Guid userId);
+
+    /// <summary>Creates today's and tomorrow's draws (number fixed and committed in advance).</summary>
+    Task<int> EnsureDrawsAsync(DateTime nowUtc, CancellationToken ct = default);
+
+    /// <summary>Announces newly revealed digits and settles finished draws. Returns (digits announced, settled).</summary>
+    Task<(int Digits, bool Settled)> RunAsync(DateTime nowUtc, CancellationToken ct = default);
 }
 
 public interface IScheduleAdminService

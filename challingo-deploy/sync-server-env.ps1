@@ -199,7 +199,7 @@ $order = @(
 
     'Redis__Enabled', 'Redis__ConnectionString', 'Redis__InstanceName', 'REDIS_PASSWORD', 'REDIS_HOST_PORT', '',
 
-    'Competition__FreeRankedRoundsPerDay', 'Competition__SmallRoundThreshold', 'Competition__ScheduleDaysAhead', 'Competition__InviteBaseUrl', 'Competition__AllowAdminTimeTravel', '',
+    'Competition__FreeRankedRunsPerDay', 'Competition__SmallRoundThreshold', 'Competition__ScheduleHoursAhead', 'Competition__InviteBaseUrl', 'Competition__AllowAdminTimeTravel', 'Competition__LotteryPot', '',
 
     'Realtime__Enabled', 'Realtime__HubPath', 'Realtime__KeepAliveSeconds', 'Realtime__ClientTimeoutSeconds', 'Realtime__EnableDetailedErrors', '',
 

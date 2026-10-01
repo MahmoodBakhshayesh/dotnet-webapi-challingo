@@ -59,7 +59,9 @@ public sealed class ChallengeService(
             Id = Guid.CreateVersion7(),
             Kind = ChallengeKind.Practice,
             PuzzleId = puzzle.Id,
+            GameKey = puzzle.GameKey,
             OpensAtUtc = now,
+            JoinClosesAtUtc = now.AddMinutes(Math.Max(1, options.Value.PracticeWindowMinutes)),
             ClosesAtUtc = now.AddMinutes(Math.Max(1, options.Value.PracticeWindowMinutes)),
             OwnerUserId = userId,
         };
@@ -103,7 +105,6 @@ public sealed class ChallengeService(
                 Status = AttemptStatus.InProgress,
                 StartedAtUtc = now,
                 CountryCode = entry?.CountryCode,
-                CountsForDay = entry?.CountsForDay ?? false,
             };
             if (!await challenges.TryAddAttemptAsync(attempt))
             {
@@ -263,7 +264,7 @@ public sealed class ChallengeService(
     private static double? RankScoreFor(Challenge challenge, Attempt attempt) =>
         challenge.Kind == ChallengeKind.Practice
             ? null
-            : RankScore.Compute(challenge.Puzzle!.GameKey, attempt.Status, attempt.ElapsedMs, attempt.ResultJson);
+            : RankScore.Compute(challenge.GameKey, attempt.Status, attempt.ElapsedMs, attempt.ResultJson);
 
     private async Task<(Attempt? Attempt, ActionResult? Error)> LoadOpenAttemptAsync(Guid userId, Guid attemptId, string? token)
     {

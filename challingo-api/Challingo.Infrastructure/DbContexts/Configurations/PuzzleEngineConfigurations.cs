@@ -26,12 +26,15 @@ public sealed class ChallengeConfiguration : IEntityTypeConfiguration<Challenge>
         builder.HasOne(x => x.Puzzle).WithMany().HasForeignKey(x => x.PuzzleId).OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(x => new { x.Kind, x.OpensAtUtc });
         builder.HasIndex(x => x.OwnerUserId);
+        builder.Property(x => x.GameKey).HasMaxLength(32).IsRequired();
         builder.Property(x => x.SlotKey).HasMaxLength(48);
         builder.Property(x => x.PeriodKey).HasMaxLength(16);
         builder.Property(x => x.WeekKey).HasMaxLength(16);
+        builder.Property(x => x.MonthKey).HasMaxLength(8);
         builder.HasIndex(x => x.SlotKey).IsUnique().HasFilter("\"SlotKey\" IS NOT NULL");
-        builder.HasIndex(x => new { x.Kind, x.PeriodKey });
-        builder.HasIndex(x => new { x.Kind, x.WeekKey });
+        builder.HasIndex(x => new { x.Kind, x.GameKey, x.PeriodKey });
+        builder.HasIndex(x => new { x.Kind, x.GameKey, x.WeekKey });
+        builder.HasIndex(x => new { x.Kind, x.GameKey, x.MonthKey });
         builder.HasIndex(x => x.ClosesAtUtc).HasFilter("\"FinalizedAtUtc\" IS NULL AND \"SlotKey\" IS NOT NULL");
         builder.HasQueryFilter(x => !x.IsDeleted);
     }
@@ -51,6 +54,34 @@ public sealed class AttemptConfiguration : IEntityTypeConfiguration<Attempt>
         builder.Property(x => x.SubmissionJson).HasColumnType("jsonb");
         builder.Property(x => x.CountryCode).HasMaxLength(2);
         builder.HasQueryFilter(x => !x.IsDeleted);
+    }
+}
+
+public sealed class LotteryDrawConfiguration : IEntityTypeConfiguration<LotteryDraw>
+{
+    public void Configure(EntityTypeBuilder<LotteryDraw> builder)
+    {
+        builder.ToTable("LotteryDraws");
+        builder.Property(x => x.DayKey).HasMaxLength(10).IsRequired();
+        builder.HasIndex(x => x.DayKey).IsUnique();
+        builder.Property(x => x.Number).HasMaxLength(10).IsRequired();
+        builder.Property(x => x.Salt).HasMaxLength(64).IsRequired();
+        builder.Property(x => x.CommitHash).HasMaxLength(64).IsRequired();
+        builder.HasQueryFilter(x => !x.IsDeleted);
+    }
+}
+
+public sealed class LotteryTicketConfiguration : IEntityTypeConfiguration<LotteryTicket>
+{
+    public void Configure(EntityTypeBuilder<LotteryTicket> builder)
+    {
+        builder.ToTable("LotteryTickets");
+        builder.HasKey(x => new { x.DrawId, x.UserId });
+        builder.Property(x => x.Number).HasMaxLength(10).IsRequired();
+        // Prefix matching ("still alive", winners) uses LIKE 'prefix%'.
+        builder.HasIndex(x => new { x.DrawId, x.Number }).HasOperators("uuid_ops", "varchar_pattern_ops");
+        builder.HasOne<LotteryDraw>().WithMany().HasForeignKey(x => x.DrawId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne<AppUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
     }
 }
 

@@ -50,9 +50,6 @@ namespace Challingo.Infrastructure.Migrations
                         .HasMaxLength(2)
                         .HasColumnType("character varying(2)");
 
-                    b.Property<bool>("CountsForDay")
-                        .HasColumnType("boolean");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -129,14 +126,23 @@ namespace Challingo.Infrastructure.Migrations
                     b.Property<DateTime?>("FinalizedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("GameKey")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
+
+                    b.Property<DateTime>("JoinClosesAtUtc")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<int>("Kind")
                         .HasColumnType("integer");
 
-                    b.Property<DateOnly?>("LocalDate")
-                        .HasColumnType("date");
+                    b.Property<string>("MonthKey")
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)");
 
                     b.Property<DateTime>("OpensAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -180,9 +186,11 @@ namespace Challingo.Infrastructure.Migrations
 
                     b.HasIndex("Kind", "OpensAtUtc");
 
-                    b.HasIndex("Kind", "PeriodKey");
+                    b.HasIndex("Kind", "GameKey", "MonthKey");
 
-                    b.HasIndex("Kind", "WeekKey");
+                    b.HasIndex("Kind", "GameKey", "PeriodKey");
+
+                    b.HasIndex("Kind", "GameKey", "WeekKey");
 
                     b.ToTable("Challenges", (string)null);
                 });
@@ -239,6 +247,94 @@ namespace Challingo.Infrastructure.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("GroupMembers", (string)null);
+                });
+
+            modelBuilder.Entity("Challingo.Core.Domain.Entities.LotteryDraw", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("AnnouncedDigits")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("CommitHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DayKey")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<int>("Pot")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("PrizePerWinner")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Salt")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime?>("SettledAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("WinnerCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("WinningMatch")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DayKey")
+                        .IsUnique();
+
+                    b.ToTable("LotteryDraws", (string)null);
+                });
+
+            modelBuilder.Entity("Challingo.Core.Domain.Entities.LotteryTicket", b =>
+                {
+                    b.Property<Guid>("DrawId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<DateTime>("PickedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("DrawId", "UserId");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("DrawId", "Number");
+
+                    NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex("DrawId", "Number"), new[] { "uuid_ops", "varchar_pattern_ops" });
+
+                    b.ToTable("LotteryTickets", (string)null);
                 });
 
             modelBuilder.Entity("Challingo.Core.Domain.Entities.Organization", b =>
@@ -763,6 +859,21 @@ namespace Challingo.Infrastructure.Migrations
                     b.HasOne("Challingo.Core.Domain.Entities.Group", null)
                         .WithMany("Members")
                         .HasForeignKey("GroupId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Challingo.Core.Domain.IdentityEntities.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Challingo.Core.Domain.Entities.LotteryTicket", b =>
+                {
+                    b.HasOne("Challingo.Core.Domain.Entities.LotteryDraw", null)
+                        .WithMany()
+                        .HasForeignKey("DrawId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 

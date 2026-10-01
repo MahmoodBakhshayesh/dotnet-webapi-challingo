@@ -31,9 +31,6 @@ public class Attempt : BaseEntity
     /// <summary>Country at start time (snapshot, so later zone changes do not move past results).</summary>
     public string? CountryCode { get; set; }
 
-    /// <summary>True for the player's first ranked round of the UTC day: only that one feeds the daily and weekly boards.</summary>
-    public bool CountsForDay { get; set; }
-
     /// <summary>Sortable ranking key (higher is better), set when the attempt completes.</summary>
     public double? RankScore { get; set; }
 

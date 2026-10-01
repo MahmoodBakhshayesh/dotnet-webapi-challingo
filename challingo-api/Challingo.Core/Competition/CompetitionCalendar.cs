@@ -3,22 +3,16 @@ using System.Globalization;
 namespace Challingo.Core.Competition;
 
 /// <summary>
-/// Fixed UTC timetable. Mon–Sat: six ranked rounds (00, 04, 08, 12, 16, 20 UTC) and a daily puzzle per local date.
-/// Sunday: the Grand Challenge only, open the whole UTC day.
+/// UTC timetable. Every game repeats on its own timer (see <see cref="RunTimetable"/>); runs line up with midnight UTC.
+/// Sunday additionally has the Grand Challenge, open the whole UTC day.
 /// </summary>
 public static class CompetitionCalendar
 {
-    public const int RoundsPerDay = 6;
-    public const int GrandGames = 6;
-    public static readonly TimeSpan RoundLength = TimeSpan.FromHours(4);
-
-    /// <summary>Earliest and latest UTC offsets in use (Kiribati, Baker Island): bounds of a local date.</summary>
-    private static readonly TimeSpan EarliestOffset = TimeSpan.FromHours(14);
-    private static readonly TimeSpan LatestOffset = TimeSpan.FromHours(12);
-
     public static DateOnly UtcDate(DateTime utc) => DateOnly.FromDateTime(utc);
 
     public static string DayKey(DateOnly date) => date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+    public static string MonthKey(DateOnly date) => date.ToString("yyyy-MM", CultureInfo.InvariantCulture);
 
     public static string WeekKey(DateOnly date) =>
         $"{ISOWeek.GetYear(date.ToDateTime(TimeOnly.MinValue))}-W{ISOWeek.GetWeekOfYear(date.ToDateTime(TimeOnly.MinValue)):00}";
@@ -30,25 +24,25 @@ public static class CompetitionCalendar
 
     public static DateTime DayStartUtc(DateOnly date) => date.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
 
-    /// <summary>Round <paramref name="sequence"/> (1–6) of a UTC date.</summary>
-    public static (DateTime Opens, DateTime Closes) RoundWindow(DateOnly date, int sequence)
+    /// <summary>Sunday of the week that contains <paramref name="date"/>.</summary>
+    public static DateOnly WeekSunday(DateOnly date) => WeekStart(date).AddDays(6);
+
+    /// <summary>Start of the run of a game that contains <paramref name="utc"/>.</summary>
+    public static DateTime RunStart(DateTime utc, TimeSpan every)
     {
-        var opens = DayStartUtc(date) + RoundLength * (sequence - 1);
-        return (opens, opens + RoundLength);
+        var dayStart = DayStartUtc(UtcDate(utc));
+        return dayStart + every * Math.Floor((utc - dayStart) / every);
     }
 
-    /// <summary>The round open at <paramref name="utc"/> (null on Sunday).</summary>
-    public static int? RoundAt(DateTime utc) =>
-        IsGrandDay(UtcDate(utc)) ? null : (int)((utc - DayStartUtc(UtcDate(utc))) / RoundLength) + 1;
+    /// <summary>Run number within the UTC day (1 = the run starting at 00:00).</summary>
+    public static int RunNumber(DateTime runStart, TimeSpan every) =>
+        (int)((runStart - DayStartUtc(UtcDate(runStart))) / every) + 1;
 
-    /// <summary>A daily puzzle for local date D can be played from D's first midnight on Earth to its last.</summary>
-    public static (DateTime Opens, DateTime Closes) DailyWindow(DateOnly localDate) =>
-        (DayStartUtc(localDate) - EarliestOffset, DayStartUtc(localDate).AddDays(1) + LatestOffset);
+    public static string RunSlot(string gameKey, DateTime runStart) =>
+        $"run:{gameKey}:{runStart.ToString("yyyy-MM-dd'T'HHmm", CultureInfo.InvariantCulture)}";
 
     public static (DateTime Opens, DateTime Closes) GrandWindow(DateOnly sunday) =>
         (DayStartUtc(sunday), DayStartUtc(sunday).AddDays(1));
 
-    public static string RankedSlot(DateOnly date, int sequence) => $"ranked:{DayKey(date)}:{sequence}";
-    public static string DailySlot(DateOnly localDate) => $"daily:{DayKey(localDate)}";
     public static string GrandSlot(DateOnly sunday, int sequence) => $"grand:{DayKey(sunday)}:{sequence}";
 }

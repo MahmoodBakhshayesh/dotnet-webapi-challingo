@@ -13,35 +13,82 @@ namespace Challingo.Tests;
 
 public class CompetitionCalendarTests
 {
+    private static readonly TimeSpan HalfHour = TimeSpan.FromMinutes(30);
+
     [Fact]
-    public void Rounds_are_fixed_four_hour_utc_windows()
+    public void Runs_line_up_with_midnight_utc()
     {
-        var monday = new DateOnly(2026, 10, 5);
-        Assert.Equal((new DateTime(2026, 10, 5, 0, 0, 0, DateTimeKind.Utc), new DateTime(2026, 10, 5, 4, 0, 0, DateTimeKind.Utc)),
-            CompetitionCalendar.RoundWindow(monday, 1));
-        Assert.Equal((new DateTime(2026, 10, 5, 20, 0, 0, DateTimeKind.Utc), new DateTime(2026, 10, 6, 0, 0, 0, DateTimeKind.Utc)),
-            CompetitionCalendar.RoundWindow(monday, 6));
-        Assert.Equal(3, CompetitionCalendar.RoundAt(new DateTime(2026, 10, 5, 11, 59, 0, DateTimeKind.Utc)));
-        Assert.Null(CompetitionCalendar.RoundAt(new DateTime(2026, 10, 11, 9, 0, 0, DateTimeKind.Utc)));
+        var t = new DateTime(2026, 10, 5, 13, 47, 10, DateTimeKind.Utc);
+        Assert.Equal(new DateTime(2026, 10, 5, 13, 30, 0, DateTimeKind.Utc), CompetitionCalendar.RunStart(t, HalfHour));
+        Assert.Equal(new DateTime(2026, 10, 5, 12, 0, 0, DateTimeKind.Utc), CompetitionCalendar.RunStart(t, TimeSpan.FromHours(2)));
+        Assert.Equal(28, CompetitionCalendar.RunNumber(new DateTime(2026, 10, 5, 13, 30, 0, DateTimeKind.Utc), HalfHour));
+        Assert.Equal(1, CompetitionCalendar.RunNumber(new DateTime(2026, 10, 5, 0, 0, 0, DateTimeKind.Utc), HalfHour));
+        Assert.Equal("run:sudoku:2026-10-05T1200", CompetitionCalendar.RunSlot("sudoku", new DateTime(2026, 10, 5, 12, 0, 0, DateTimeKind.Utc)));
     }
 
     [Fact]
-    public void Weeks_are_iso_weeks_starting_monday()
+    public void Weeks_are_iso_weeks_and_months_are_utc()
     {
         Assert.Equal("2026-W41", CompetitionCalendar.WeekKey(new DateOnly(2026, 10, 5)));
         Assert.Equal("2026-W41", CompetitionCalendar.WeekKey(new DateOnly(2026, 10, 11)));
         Assert.Equal("2026-W42", CompetitionCalendar.WeekKey(new DateOnly(2026, 10, 12)));
         Assert.Equal("2026-W53", CompetitionCalendar.WeekKey(new DateOnly(2027, 1, 1)));
-        Assert.Equal(new DateOnly(2026, 10, 5), CompetitionCalendar.WeekStart(new DateOnly(2026, 10, 11)));
+        Assert.Equal("2026-10", CompetitionCalendar.MonthKey(new DateOnly(2026, 10, 31)));
+        Assert.Equal(new DateOnly(2026, 10, 11), CompetitionCalendar.WeekSunday(new DateOnly(2026, 10, 7)));
         Assert.True(CompetitionCalendar.IsGrandDay(new DateOnly(2026, 10, 11)));
     }
 
     [Fact]
-    public void Daily_window_covers_every_time_zone()
+    public void Timetable_defaults_overrides_and_switches()
     {
-        var (opens, closes) = CompetitionCalendar.DailyWindow(new DateOnly(2026, 10, 5));
-        Assert.Equal(new DateTime(2026, 10, 4, 10, 0, 0, DateTimeKind.Utc), opens);
-        Assert.Equal(new DateTime(2026, 10, 6, 12, 0, 0, DateTimeKind.Utc), closes);
+        var options = new CompetitionOptions();
+        Assert.Equal(TimeSpan.FromMinutes(30), RunTimetable.For("path-link", options)!.Every);
+        Assert.Equal(TimeSpan.FromHours(2), RunTimetable.For("sudoku", options)!.Every);
+
+        options.Runs["sudoku"] = new GameRunOptions { EveryMinutes = 90 };
+        options.Runs["kakuro"] = new GameRunOptions { EveryMinutes = 7 }; // does not divide a day: ignored
+        options.Runs["nonogram"] = new GameRunOptions { Enabled = false };
+        Assert.Equal(TimeSpan.FromMinutes(90), RunTimetable.For("sudoku", options)!.Every);
+        Assert.Equal(TimeSpan.FromMinutes(30), RunTimetable.For("sudoku", options)!.Grace);
+        Assert.Equal(TimeSpan.FromHours(2), RunTimetable.For("kakuro", options)!.Every);
+        Assert.Null(RunTimetable.For("nonogram", options));
+    }
+}
+
+public class LotteryRulesTests
+{
+    private static readonly DateOnly Day = new(2026, 10, 5);
+
+    [Fact]
+    public void Picks_close_at_14_and_a_digit_shows_every_hour()
+    {
+        Assert.Equal(new DateTime(2026, 10, 5, 14, 0, 0, DateTimeKind.Utc), LotteryRules.PicksCloseUtc(Day));
+        Assert.Equal(new DateTime(2026, 10, 5, 15, 0, 0, DateTimeKind.Utc), LotteryRules.RevealAtUtc(Day, 1));
+        Assert.Equal(new DateTime(2026, 10, 6, 0, 0, 0, DateTimeKind.Utc), LotteryRules.RevealAtUtc(Day, 10));
+        Assert.Equal(0, LotteryRules.RevealedCount(Day, new DateTime(2026, 10, 5, 14, 59, 0, DateTimeKind.Utc)));
+        Assert.Equal(1, LotteryRules.RevealedCount(Day, new DateTime(2026, 10, 5, 15, 0, 0, DateTimeKind.Utc)));
+        Assert.Equal(9, LotteryRules.RevealedCount(Day, new DateTime(2026, 10, 5, 23, 59, 0, DateTimeKind.Utc)));
+        Assert.Equal(10, LotteryRules.RevealedCount(Day, new DateTime(2026, 10, 6, 3, 0, 0, DateTimeKind.Utc)));
+    }
+
+    [Theory]
+    [InlineData("1234567890", "1234567890", 10)]
+    [InlineData("1299999999", "1234567890", 2)]
+    [InlineData("0234567890", "1234567890", 0)]
+    [InlineData("12", "1234567890", 2)]
+    public void Match_counts_from_the_first_digit(string pick, string number, int expected) =>
+        Assert.Equal(expected, LotteryRules.MatchLength(pick, number));
+
+    [Fact]
+    public void Numbers_and_commitments()
+    {
+        var n = LotteryRules.RandomNumber();
+        Assert.True(LotteryRules.IsValidNumber(n));
+        Assert.False(LotteryRules.IsValidNumber("12345"));
+        Assert.False(LotteryRules.IsValidNumber("12345abcde"));
+        Assert.Equal(64, LotteryRules.Commit("salt", n).Length);
+        Assert.Equal(LotteryRules.Commit("salt", n), LotteryRules.Commit("salt", n));
+        Assert.NotEqual(LotteryRules.Commit("salt", n), LotteryRules.Commit("other", n));
     }
 }
 
@@ -122,12 +169,17 @@ public class RankScoreAndPointsTests
     {
         var podium = StarRewards.Podium([900.0, 1000, 900, 800, 0], s => s).ToList();
         Assert.Equal([(1000.0, 1), (900.0, 2), (900.0, 2)], podium);
-        Assert.Equal(10, StarRewards.For(BoardPeriod.Round, true, 1));
-        Assert.Equal(1, StarRewards.For(BoardPeriod.Round, false, 3));
-        Assert.Equal(20, StarRewards.For(BoardPeriod.Day, true, 2));
-        Assert.Equal(30, StarRewards.For(BoardPeriod.Grand, true, 1));
-        Assert.Equal(60, StarRewards.For(BoardPeriod.Week, false, 2));
-        Assert.Equal(0, StarRewards.For(BoardPeriod.Week, true, 4));
+        var stars = new StarAmounts();
+        Assert.Equal(0, StarRewards.For(stars, BoardPeriod.Round, true, 1));
+        Assert.Equal(20, StarRewards.For(stars, BoardPeriod.Day, true, 2));
+        Assert.Equal(3, StarRewards.For(stars, BoardPeriod.Day, false, 3));
+        Assert.Equal(20, StarRewards.For(stars, BoardPeriod.Week, false, 2));
+        Assert.Equal(300, StarRewards.For(stars, BoardPeriod.Month, true, 1));
+        Assert.Equal(300, StarRewards.For(stars, BoardPeriod.Grand, true, 1));
+        Assert.Equal(0, StarRewards.For(stars, BoardPeriod.Week, true, 4));
+        stars.DayGlobal = "50, 25";
+        Assert.Equal(25, StarRewards.For(stars, BoardPeriod.Day, true, 2));
+        Assert.Equal(0, StarRewards.For(stars, BoardPeriod.Day, true, 3));
     }
 
     [Theory]
@@ -146,47 +198,47 @@ public class CompetitionSchedulerTests
         ["sudoku", "kakuro", "nonogram", "path-link", "mine-logic", "code-breaker", "number-merge", "word-hunt", "word-guess", "mini-crossword"];
 
     [Fact]
-    public async Task Schedules_dailies_rounds_and_grand_idempotently()
+    public async Task Schedules_every_game_on_its_timer_idempotently()
     {
         var repo = new FakeCompetitionRepository();
-        var scheduler = Scheduler(repo, Keys);
-        var monday = new DateTime(2026, 10, 5, 0, 30, 0, DateTimeKind.Utc);
+        var scheduler = Scheduler(repo, Keys, hoursAhead: 24);
+        var monday = new DateTime(2026, 10, 5, 0, 0, 0, DateTimeKind.Utc);
 
         var created = await scheduler.EnsureScheduleAsync(monday);
-        // Today + 8 days = Mon 5 … Tue 13: eight Mon–Sat days (daily + 6 rounds) and one Sunday (6 Grand games).
-        Assert.Equal(8 * 7 + 6, created);
         Assert.Equal(0, await scheduler.EnsureScheduleAsync(monday));
 
-        var week = repo.Challenges.Where(c => c.WeekKey == "2026-W41").ToList();
-        var dailies = week.Where(c => c.Kind == ChallengeKind.Daily).OrderBy(c => c.LocalDate).Select(Game).ToList();
-        Assert.Equal(6, dailies.Count);
-        Assert.Equal(6, dailies.Distinct().Count());
+        var runs = repo.Challenges.Where(c => c.Kind == ChallengeKind.Ranked).ToList();
+        // 24 h from 00:00: 4 games × 48 + 2 × 24 + 3 × 12 + 1 × 6.
+        Assert.Equal(4 * 48 + 2 * 24 + 3 * 12 + 6, runs.Count);
+        Assert.Equal(runs.Count + 6, created);
 
-        var grand = week.Where(c => c.Kind == ChallengeKind.Grand).OrderBy(c => c.Sequence).ToList();
-        Assert.Equal(dailies, grand.Select(Game));
+        var sudoku = runs.Where(c => c.GameKey == "sudoku").OrderBy(c => c.OpensAtUtc).ToList();
+        Assert.Equal(12, sudoku.Count);
+        Assert.Equal(new DateTime(2026, 10, 5, 2, 0, 0, DateTimeKind.Utc), sudoku[0].JoinClosesAtUtc);
+        Assert.Equal(new DateTime(2026, 10, 5, 2, 30, 0, DateTimeKind.Utc), sudoku[0].ClosesAtUtc);
+        Assert.Equal([1, 2, 3], sudoku.Take(3).Select(c => c.Sequence));
+        Assert.All(sudoku, c => Assert.Equal(("2026-10-05", "2026-W41", "2026-10"), (c.PeriodKey, c.WeekKey, c.MonthKey)));
+
+        var grand = repo.Challenges.Where(c => c.Kind == ChallengeKind.Grand).ToList();
+        Assert.Equal(6, grand.Count);
+        Assert.Equal(6, grand.Select(c => c.GameKey).Distinct().Count());
         Assert.All(grand, g => Assert.Equal(new DateTime(2026, 10, 11, 0, 0, 0, DateTimeKind.Utc), g.OpensAtUtc));
-
-        var rounds = repo.Challenges.Where(c => c.Kind == ChallengeKind.Ranked).OrderBy(c => c.OpensAtUtc).ToList();
-        Assert.DoesNotContain(rounds, c => CompetitionCalendar.IsGrandDay(CompetitionCalendar.UtcDate(c.OpensAtUtc)));
-        Assert.All(rounds.Zip(rounds.Skip(1)), pair => Assert.NotEqual(Game(pair.First), Game(pair.Second)));
     }
 
     [Fact]
     public async Task Skips_games_without_content()
     {
         var repo = new FakeCompetitionRepository();
-        var scheduler = Scheduler(repo, Keys, emptyContent: ["word-guess", "mini-crossword"]);
+        var scheduler = Scheduler(repo, Keys, hoursAhead: 4, emptyContent: ["word-guess", "mini-crossword"]);
         await scheduler.EnsureScheduleAsync(new DateTime(2026, 10, 5, 0, 0, 0, DateTimeKind.Utc));
-        Assert.DoesNotContain(repo.Challenges, c => Game(c) is "word-guess" or "mini-crossword");
-        Assert.Equal(6, repo.Challenges.Count(c => c.Kind == ChallengeKind.Daily && c.WeekKey == "2026-W41"));
+        Assert.DoesNotContain(repo.Challenges, c => c.GameKey is "word-guess" or "mini-crossword");
+        Assert.Contains(repo.Challenges, c => c.GameKey == "sudoku");
     }
 
-    private string Game(Challenge c) => c.Puzzle!.GameKey;
-
-    private static CompetitionScheduler Scheduler(FakeCompetitionRepository repo, string[] keys, string[]? emptyContent = null) =>
+    private static CompetitionScheduler Scheduler(FakeCompetitionRepository repo, string[] keys, int hoursAhead, string[]? emptyContent = null) =>
         new(repo,
             new PuzzleGameRegistry(keys.Select(k => (IPuzzleGame)new StubGame(k, emptyContent?.Contains(k) == true))),
-            Options.Create(new CompetitionOptions { ScheduleDaysAhead = 8 }),
+            Options.Create(new CompetitionOptions { ScheduleHoursAhead = hoursAhead, GrandDaysAhead = 6 }),
             NullLogger<CompetitionScheduler>.Instance);
 
     private sealed class StubGame(string key, bool noContent) : IPuzzleGame
@@ -209,14 +261,6 @@ internal sealed class FakeCompetitionRepository : ICompetitionRepository
     public Task<HashSet<string>> GetExistingSlotsAsync(IReadOnlyCollection<string> slotKeys, CancellationToken ct = default) =>
         Task.FromResult(Challenges.Select(c => c.SlotKey!).Where(slotKeys.Contains).ToHashSet());
 
-    public Task<string?> GetPreviousRankedGameAsync(DateTime beforeUtc, CancellationToken ct = default) =>
-        Task.FromResult(Challenges.Where(c => c.Kind == ChallengeKind.Ranked && c.OpensAtUtc < beforeUtc)
-            .OrderByDescending(c => c.OpensAtUtc).Select(c => c.Puzzle!.GameKey).FirstOrDefault());
-
-    public Task<List<(DateOnly Date, string GameKey)>> GetFeaturedGamesAsync(string weekKey, CancellationToken ct = default) =>
-        Task.FromResult(Challenges.Where(c => c.Kind == ChallengeKind.Daily && c.WeekKey == weekKey)
-            .OrderBy(c => c.LocalDate).Select(c => (c.LocalDate!.Value, c.Puzzle!.GameKey)).ToList());
-
     public Task<bool> TryAddScheduledAsync(Puzzle puzzle, Challenge challenge, CancellationToken ct = default)
     {
         if (Challenges.Any(c => c.SlotKey == challenge.SlotKey))
@@ -226,14 +270,16 @@ internal sealed class FakeCompetitionRepository : ICompetitionRepository
         return Task.FromResult(true);
     }
 
+    public Task<List<Challenge>> GetGrandAsync(string weekKey, CancellationToken ct = default) =>
+        Task.FromResult(Challenges.Where(c => c.Kind == ChallengeKind.Grand && c.WeekKey == weekKey).ToList());
+
     public Task<List<Challenge>> ListChallengesAsync(DateTime fromUtc, DateTime toUtc, CancellationToken ct = default) => throw new NotSupportedException();
-    public Task<Challenge?> GetDailyAsync(DateOnly localDate, CancellationToken ct = default) => throw new NotSupportedException();
-    public Task<List<Challenge>> GetGrandAsync(string weekKey, CancellationToken ct = default) => throw new NotSupportedException();
     public Task<Challenge?> GetChallengeAsync(Guid challengeId, CancellationToken ct = default) => throw new NotSupportedException();
     public Task<Dictionary<Guid, int>> CountAttemptsAsync(IReadOnlyCollection<Guid> challengeIds, CancellationToken ct = default) => throw new NotSupportedException();
     public Task ReplacePuzzleAsync(Guid challengeId, Puzzle puzzle, CancellationToken ct = default) => throw new NotSupportedException();
-    public Task SetWindowAsync(Guid challengeId, DateTime opensAtUtc, DateTime closesAtUtc, CancellationToken ct = default) => throw new NotSupportedException();
+    public Task SetWindowAsync(Guid challengeId, DateTime opensAtUtc, DateTime joinClosesAtUtc, DateTime closesAtUtc, CancellationToken ct = default) => throw new NotSupportedException();
     public Task<int> CountRankedEntriesAsync(Guid userId, string dayKey, CancellationToken ct = default) => throw new NotSupportedException();
+    public Task<Dictionary<string, int>> CountRankedEntriesByGameAsync(Guid userId, string dayKey, CancellationToken ct = default) => throw new NotSupportedException();
     public Task<List<Attempt>> GetUserAttemptsAsync(Guid userId, IReadOnlyCollection<Guid> challengeIds, CancellationToken ct = default) => throw new NotSupportedException();
     public Task<List<Attempt>> GetAttemptsForUsersAsync(Guid challengeId, IReadOnlyCollection<Guid> userIds, CancellationToken ct = default) => throw new NotSupportedException();
     public Task<List<Challenge>> ListAnnounceDueAsync(DateTime nowUtc, CancellationToken ct = default) => throw new NotSupportedException();
@@ -243,14 +289,13 @@ internal sealed class FakeCompetitionRepository : ICompetitionRepository
     public Task<List<ScoredAttempt>> GetScoredAttemptsAsync(Guid challengeId, CancellationToken ct = default) => throw new NotSupportedException();
     public Task SaveFinalPointsAsync(IReadOnlyList<AttemptPoints> points, CancellationToken ct = default) => throw new NotSupportedException();
     public Task MarkFinalizedAsync(Guid challengeId, DateTime nowUtc, CancellationToken ct = default) => throw new NotSupportedException();
-    public Task<List<string>> GetClosableDaysAsync(CancellationToken ct = default) => throw new NotSupportedException();
-    public Task<List<string>> GetClosableWeeksAsync(CancellationToken ct = default) => throw new NotSupportedException();
+    public Task<List<string>> GetGamesWithRunsAsync(BoardPeriod period, string key, CancellationToken ct = default) => throw new NotSupportedException();
+    public Task<bool> HasUnfinalizedRunsAsync(string gameKey, BoardPeriod period, string key, CancellationToken ct = default) => throw new NotSupportedException();
+    public Task<bool> IsGrandFinalizedAsync(string weekKey, CancellationToken ct = default) => throw new NotSupportedException();
     public Task<bool> IsPeriodClosedAsync(string key, CancellationToken ct = default) => throw new NotSupportedException();
     public Task MarkPeriodClosedAsync(string key, DateTime nowUtc, CancellationToken ct = default) => throw new NotSupportedException();
-    public Task<List<PeriodResult>> GetDayResultsAsync(string dayKey, IReadOnlyCollection<Guid>? userIds = null, CancellationToken ct = default) => throw new NotSupportedException();
-    public Task<List<PeriodResult>> GetWeekResultsAsync(string weekKey, IReadOnlyCollection<Guid>? userIds = null, CancellationToken ct = default) => throw new NotSupportedException();
+    public Task<List<PeriodResult>> GetGameResultsAsync(string gameKey, BoardPeriod period, string key, IReadOnlyCollection<Guid>? userIds = null, CancellationToken ct = default) => throw new NotSupportedException();
     public Task<List<PeriodResult>> GetGrandResultsAsync(string weekKey, IReadOnlyCollection<Guid>? userIds = null, CancellationToken ct = default) => throw new NotSupportedException();
-    public Task<List<PeriodResult>> GetAllTimeResultsAsync(IReadOnlyCollection<Guid> userIds, CancellationToken ct = default) => throw new NotSupportedException();
     public Task<bool> TryAwardStarsAsync(Guid userId, int amount, string refKey, CancellationToken ct = default) => throw new NotSupportedException();
     public Task<long> GetStarBalanceAsync(Guid userId, CancellationToken ct = default) => throw new NotSupportedException();
     public Task<Dictionary<Guid, (string DisplayName, string? CountryCode)>> GetPlayersAsync(IReadOnlyCollection<Guid> userIds, CancellationToken ct = default) => throw new NotSupportedException();

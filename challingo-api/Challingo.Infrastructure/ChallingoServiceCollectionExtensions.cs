@@ -66,6 +66,8 @@ public static class ChallingoServiceCollectionExtensions
         services.AddOptions<CompetitionOptions>().BindConfiguration("Competition");
         services.AddTransient<ICompetitionRepository, CompetitionRepository>();
         services.AddTransient<IGroupRepository, GroupRepository>();
+        services.AddTransient<ILotteryRepository, LotteryRepository>();
+        services.AddTransient<ILotteryService, LotteryService>();
         services.AddTransient<ICompetitionService, CompetitionService>();
         services.AddTransient<ICompetitionScheduler, CompetitionScheduler>();
         services.AddTransient<ICompetitionCloser, CompetitionCloser>();

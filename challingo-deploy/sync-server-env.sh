@@ -410,15 +410,17 @@ write_kv() {
 
   echo
 
-  write_kv Competition__FreeRankedRoundsPerDay
+  write_kv Competition__FreeRankedRunsPerDay
 
   write_kv Competition__SmallRoundThreshold
 
-  write_kv Competition__ScheduleDaysAhead
+  write_kv Competition__ScheduleHoursAhead
 
   write_kv Competition__InviteBaseUrl
 
   write_kv Competition__AllowAdminTimeTravel
+
+  write_kv Competition__LotteryPot
 
   write_kv REDIS_HOST_PORT
 

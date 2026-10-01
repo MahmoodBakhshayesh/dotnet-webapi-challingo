@@ -29,6 +29,8 @@ namespace Challingo.Infrastructure.DbContexts
         public DbSet<PeriodClose> PeriodCloses { set; get; }
         public DbSet<Group> Groups { set; get; }
         public DbSet<GroupMember> GroupMembers { set; get; }
+        public DbSet<LotteryDraw> LotteryDraws { set; get; }
+        public DbSet<LotteryTicket> LotteryTickets { set; get; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -47,6 +49,8 @@ namespace Challingo.Infrastructure.DbContexts
             builder.ApplyConfiguration(new Configurations.PeriodCloseConfiguration());
             builder.ApplyConfiguration(new Configurations.GroupConfiguration());
             builder.ApplyConfiguration(new Configurations.GroupMemberConfiguration());
+            builder.ApplyConfiguration(new Configurations.LotteryDrawConfiguration());
+            builder.ApplyConfiguration(new Configurations.LotteryTicketConfiguration());
         }
 
         public override int SaveChanges() =>

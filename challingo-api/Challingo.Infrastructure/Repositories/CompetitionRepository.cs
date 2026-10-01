@@ -17,19 +17,6 @@ public sealed class CompetitionRepository(AppDbContext db) : ICompetitionReposit
     public async Task<HashSet<string>> GetExistingSlotsAsync(IReadOnlyCollection<string> slotKeys, CancellationToken ct = default) =>
         (await Shared.Where(c => slotKeys.Contains(c.SlotKey!)).Select(c => c.SlotKey!).ToListAsync(ct)).ToHashSet();
 
-    public Task<string?> GetPreviousRankedGameAsync(DateTime beforeUtc, CancellationToken ct = default) =>
-        Shared.Where(c => c.Kind == ChallengeKind.Ranked && c.OpensAtUtc < beforeUtc)
-            .OrderByDescending(c => c.OpensAtUtc)
-            .Select(c => c.Puzzle!.GameKey)
-            .FirstOrDefaultAsync(ct);
-
-    public async Task<List<(DateOnly Date, string GameKey)>> GetFeaturedGamesAsync(string weekKey, CancellationToken ct = default) =>
-        (await Shared.Where(c => c.Kind == ChallengeKind.Daily && c.WeekKey == weekKey)
-            .OrderBy(c => c.LocalDate)
-            .Select(c => new { c.LocalDate, c.Puzzle!.GameKey })
-            .ToListAsync(ct))
-        .Select(x => (x.LocalDate!.Value, x.GameKey)).ToList();
-
     public async Task<bool> TryAddScheduledAsync(Puzzle puzzle, Challenge challenge, CancellationToken ct = default)
     {
         db.Puzzles.Add(puzzle);
@@ -54,10 +41,6 @@ public sealed class CompetitionRepository(AppDbContext db) : ICompetitionReposit
             .OrderBy(c => c.OpensAtUtc).ThenBy(c => c.Kind).ThenBy(c => c.Sequence)
             .ToListAsync(ct);
 
-    public Task<Challenge?> GetDailyAsync(DateOnly localDate, CancellationToken ct = default) =>
-        Shared.AsNoTracking().Include(c => c.Puzzle)
-            .FirstOrDefaultAsync(c => c.Kind == ChallengeKind.Daily && c.LocalDate == localDate, ct);
-
     public Task<List<Challenge>> GetGrandAsync(string weekKey, CancellationToken ct = default) =>
         Shared.AsNoTracking().Include(c => c.Puzzle)
             .Where(c => c.Kind == ChallengeKind.Grand && c.WeekKey == weekKey)
@@ -80,13 +63,15 @@ public sealed class CompetitionRepository(AppDbContext db) : ICompetitionReposit
         await db.Challenges.Where(c => c.Id == challengeId)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(c => c.PuzzleId, puzzle.Id)
+                .SetProperty(c => c.GameKey, puzzle.GameKey)
                 .SetProperty(c => c.UpdatedAt, DateTime.UtcNow), ct);
     }
 
-    public Task SetWindowAsync(Guid challengeId, DateTime opensAtUtc, DateTime closesAtUtc, CancellationToken ct = default) =>
+    public Task SetWindowAsync(Guid challengeId, DateTime opensAtUtc, DateTime joinClosesAtUtc, DateTime closesAtUtc, CancellationToken ct = default) =>
         db.Challenges.Where(c => c.Id == challengeId)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(c => c.OpensAtUtc, opensAtUtc)
+                .SetProperty(c => c.JoinClosesAtUtc, joinClosesAtUtc)
                 .SetProperty(c => c.ClosesAtUtc, closesAtUtc)
                 .SetProperty(c => c.AnnouncedAtUtc, (DateTime?)null)
                 .SetProperty(c => c.UpdatedAt, DateTime.UtcNow), ct);
@@ -96,6 +81,13 @@ public sealed class CompetitionRepository(AppDbContext db) : ICompetitionReposit
     public Task<int> CountRankedEntriesAsync(Guid userId, string dayKey, CancellationToken ct = default) =>
         db.Attempts.CountAsync(a => a.UserId == userId
             && a.Challenge!.Kind == ChallengeKind.Ranked && a.Challenge.PeriodKey == dayKey, ct);
+
+    public async Task<Dictionary<string, int>> CountRankedEntriesByGameAsync(Guid userId, string dayKey, CancellationToken ct = default) =>
+        await db.Attempts
+            .Where(a => a.UserId == userId && a.Challenge!.Kind == ChallengeKind.Ranked && a.Challenge.PeriodKey == dayKey)
+            .GroupBy(a => a.Challenge!.GameKey)
+            .Select(g => new { g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.Key, x => x.Count, ct);
 
     public Task<List<Attempt>> GetUserAttemptsAsync(Guid userId, IReadOnlyCollection<Guid> challengeIds, CancellationToken ct = default) =>
         db.Attempts.AsNoTracking().Where(a => a.UserId == userId && challengeIds.Contains(a.ChallengeId)).ToListAsync(ct);
@@ -107,7 +99,7 @@ public sealed class CompetitionRepository(AppDbContext db) : ICompetitionReposit
 
     public Task<List<Challenge>> ListAnnounceDueAsync(DateTime nowUtc, CancellationToken ct = default) =>
         Shared.AsNoTracking().Include(c => c.Puzzle)
-            .Where(c => c.Kind == ChallengeKind.Ranked && c.AnnouncedAtUtc == null && c.OpensAtUtc <= nowUtc && c.ClosesAtUtc > nowUtc)
+            .Where(c => c.Kind == ChallengeKind.Ranked && c.AnnouncedAtUtc == null && c.OpensAtUtc <= nowUtc && c.JoinClosesAtUtc > nowUtc)
             .ToListAsync(ct);
 
     public Task MarkAnnouncedAsync(Guid challengeId, DateTime nowUtc, CancellationToken ct = default) =>
@@ -150,29 +142,27 @@ public sealed class CompetitionRepository(AppDbContext db) : ICompetitionReposit
     public Task MarkFinalizedAsync(Guid challengeId, DateTime nowUtc, CancellationToken ct = default) =>
         db.Challenges.Where(c => c.Id == challengeId).ExecuteUpdateAsync(s => s.SetProperty(c => c.FinalizedAtUtc, nowUtc), ct);
 
-    public async Task<List<string>> GetClosableDaysAsync(CancellationToken ct = default)
+    public async Task<List<string>> GetGamesWithRunsAsync(BoardPeriod period, string key, CancellationToken ct = default) =>
+        await InPeriod(Shared.Where(c => c.Kind == ChallengeKind.Ranked), period, key)
+            .Select(c => c.GameKey).Distinct().ToListAsync(ct);
+
+    public Task<bool> HasUnfinalizedRunsAsync(string gameKey, BoardPeriod period, string key, CancellationToken ct = default) =>
+        InPeriod(Shared.Where(c => c.Kind == ChallengeKind.Ranked && c.GameKey == gameKey), period, key)
+            .AnyAsync(c => c.FinalizedAtUtc == null, ct);
+
+    public async Task<bool> IsGrandFinalizedAsync(string weekKey, CancellationToken ct = default)
     {
-        var closed = db.PeriodCloses.Select(p => p.Key);
-        return await Shared.Where(c => c.Kind == ChallengeKind.Ranked)
-            .GroupBy(c => c.PeriodKey!)
-            .Where(g => g.Count() == CompetitionCalendar.RoundsPerDay && g.All(c => c.FinalizedAtUtc != null))
-            .Select(g => g.Key)
-            .Where(k => !closed.Contains("day:" + k))
-            .OrderBy(k => k)
-            .ToListAsync(ct);
+        var grand = Shared.Where(c => c.Kind == ChallengeKind.Grand && c.WeekKey == weekKey);
+        return await grand.AnyAsync(ct) && !await grand.AnyAsync(c => c.FinalizedAtUtc == null, ct);
     }
 
-    public async Task<List<string>> GetClosableWeeksAsync(CancellationToken ct = default)
+    private static IQueryable<Challenge> InPeriod(IQueryable<Challenge> query, BoardPeriod period, string key) => period switch
     {
-        var closed = db.PeriodCloses.Select(p => p.Key);
-        return await Shared.Where(c => c.Kind == ChallengeKind.Grand)
-            .GroupBy(c => c.WeekKey!)
-            .Where(g => g.Count() == CompetitionCalendar.GrandGames && g.All(c => c.FinalizedAtUtc != null))
-            .Select(g => g.Key)
-            .Where(k => !closed.Contains("week:" + k))
-            .OrderBy(k => k)
-            .ToListAsync(ct);
-    }
+        BoardPeriod.Day => query.Where(c => c.PeriodKey == key),
+        BoardPeriod.Week => query.Where(c => c.WeekKey == key),
+        BoardPeriod.Month => query.Where(c => c.MonthKey == key),
+        _ => query,
+    };
 
     public Task<bool> IsPeriodClosedAsync(string key, CancellationToken ct = default) =>
         db.PeriodCloses.AnyAsync(p => p.Key == key, ct);
@@ -181,29 +171,21 @@ public sealed class CompetitionRepository(AppDbContext db) : ICompetitionReposit
         db.Database.ExecuteSqlInterpolatedAsync(
             $"""INSERT INTO "PeriodCloses" ("Key", "ClosedAtUtc") VALUES ({key}, {nowUtc}) ON CONFLICT ("Key") DO NOTHING""", ct);
 
-    public async Task<List<PeriodResult>> GetDayResultsAsync(string dayKey, IReadOnlyCollection<Guid>? userIds = null, CancellationToken ct = default)
+    public Task<List<PeriodResult>> GetGameResultsAsync(string gameKey, BoardPeriod period, string key, IReadOnlyCollection<Guid>? userIds = null, CancellationToken ct = default)
     {
-        var query = db.Attempts.Where(a => a.CountsForDay && a.Points != null
-            && a.Challenge!.Kind == ChallengeKind.Ranked && a.Challenge.PeriodKey == dayKey);
-        if (userIds is not null)
-            query = query.Where(a => userIds.Contains(a.UserId));
-        return (await query.Select(a => new { a.UserId, a.Points, a.CountryCode }).ToListAsync(ct))
-            .Select(a => new PeriodResult(a.UserId, a.Points!.Value, a.CountryCode)).ToList();
+        var query = db.Attempts.Where(a => a.Points != null && a.Challenge!.Kind == ChallengeKind.Ranked && a.Challenge.GameKey == gameKey);
+        query = period switch
+        {
+            BoardPeriod.Day => query.Where(a => a.Challenge!.PeriodKey == key),
+            BoardPeriod.Week => query.Where(a => a.Challenge!.WeekKey == key),
+            BoardPeriod.Month => query.Where(a => a.Challenge!.MonthKey == key),
+            _ => query,
+        };
+        return TotalsAsync(query, userIds, ct);
     }
-
-    public Task<List<PeriodResult>> GetWeekResultsAsync(string weekKey, IReadOnlyCollection<Guid>? userIds = null, CancellationToken ct = default) =>
-        TotalsAsync(CountingAttempts().Where(a => a.Challenge!.WeekKey == weekKey), userIds, ct);
 
     public Task<List<PeriodResult>> GetGrandResultsAsync(string weekKey, IReadOnlyCollection<Guid>? userIds = null, CancellationToken ct = default) =>
         TotalsAsync(db.Attempts.Where(a => a.Points != null && a.Challenge!.Kind == ChallengeKind.Grand && a.Challenge.WeekKey == weekKey), userIds, ct);
-
-    public Task<List<PeriodResult>> GetAllTimeResultsAsync(IReadOnlyCollection<Guid> userIds, CancellationToken ct = default) =>
-        TotalsAsync(CountingAttempts(), userIds, ct);
-
-    /// <summary>Attempts that feed weekly and all-time totals: first ranked round of each day, and the Grand Challenge.</summary>
-    private IQueryable<Attempt> CountingAttempts() =>
-        db.Attempts.Where(a => a.Points != null
-            && ((a.Challenge!.Kind == ChallengeKind.Ranked && a.CountsForDay) || a.Challenge.Kind == ChallengeKind.Grand));
 
     private static async Task<List<PeriodResult>> TotalsAsync(IQueryable<Attempt> query, IReadOnlyCollection<Guid>? userIds, CancellationToken ct)
     {

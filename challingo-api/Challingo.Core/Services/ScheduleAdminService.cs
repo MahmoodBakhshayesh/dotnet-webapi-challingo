@@ -43,7 +43,7 @@ public sealed class ScheduleAdminService(
         var gameKey = request.GameKey?.Trim();
         if (string.IsNullOrEmpty(gameKey))
         {
-            var others = games.Keys.Where(k => k != challenge.Puzzle.GameKey).ToList();
+            var others = games.Keys.Where(k => k != challenge.GameKey).ToList();
             gameKey = others[Random.Shared.Next(others.Count)];
         }
         var game = games.Find(gameKey);
@@ -74,6 +74,7 @@ public sealed class ScheduleAdminService(
         await competition.ReplacePuzzleAsync(challengeId, puzzle);
         challenge.Puzzle = puzzle;
         challenge.PuzzleId = puzzle.Id;
+        challenge.GameKey = puzzle.GameKey;
         return AppResponse.Ok(ToDto(challenge, now, 0));
     }
 
@@ -91,8 +92,12 @@ public sealed class ScheduleAdminService(
 
         var opens = DateTime.SpecifyKind(request.OpensAtUtc.ToUniversalTime(), DateTimeKind.Utc);
         var closes = DateTime.SpecifyKind(request.ClosesAtUtc.ToUniversalTime(), DateTimeKind.Utc);
-        await competition.SetWindowAsync(challengeId, opens, closes);
+        var joinCloses = request.JoinClosesAtUtc is { } j ? DateTime.SpecifyKind(j.ToUniversalTime(), DateTimeKind.Utc) : closes;
+        if (joinCloses > closes || joinCloses < opens)
+            return AppResponse.RequestError("JoinClosesAtUtc must be between OpensAtUtc and ClosesAtUtc.");
+        await competition.SetWindowAsync(challengeId, opens, joinCloses, closes);
         challenge.OpensAtUtc = opens;
+        challenge.JoinClosesAtUtc = joinCloses;
         challenge.ClosesAtUtc = closes;
         var attempts = (await competition.CountAttemptsAsync([challengeId])).GetValueOrDefault(challengeId);
         return AppResponse.Ok(ToDto(challenge, clock.GetUtcNow().UtcDateTime, attempts));
@@ -108,8 +113,9 @@ public sealed class ScheduleAdminService(
             Scheduled = scheduled,
             Announced = run.Announced,
             Finalized = run.Finalized,
-            DaysClosed = run.DaysClosed,
-            WeeksClosed = run.WeeksClosed,
+            PeriodsClosed = run.PeriodsClosed,
+            LotteryDigits = run.LotteryDigits,
+            LotterySettled = run.LotterySettled,
         });
     }
 
@@ -119,10 +125,10 @@ public sealed class ScheduleAdminService(
         Kind = c.Kind,
         SlotKey = c.SlotKey ?? "",
         Sequence = c.Sequence,
-        GameKey = c.Puzzle?.GameKey ?? "",
+        GameKey = c.GameKey,
         Difficulty = c.Puzzle?.Difficulty ?? 0,
-        LocalDate = c.LocalDate,
         OpensAtUtc = c.OpensAtUtc,
+        JoinClosesAtUtc = c.JoinClosesAtUtc,
         ClosesAtUtc = c.ClosesAtUtc,
         State = CompetitionService.StateAt(c, now),
         Attempts = attempts,
