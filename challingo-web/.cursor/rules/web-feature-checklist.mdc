@@ -1,0 +1,20 @@
+---
+description: Checklist for adding or changing a feature
+alwaysApply: false
+---
+
+# Feature checklist
+
+When adding a new feature or CRUD entity:
+
+- [ ] `repositories/<name>.repository.ts` — transport only, matches an existing API controller's routes.
+- [ ] `usecases/` — one file per action, unwraps `AppResponse` via `isAppSuccess`/`appErrorMessage`.
+- [ ] `controllers/<name>.controller.ts` — owns state, wires React Query, exports `<Name>ViewModel`.
+- [ ] `views/<name>.view.tsx` — presentational only.
+- [ ] `queryKeys.<entity>` added to `lib/query-keys.ts`.
+- [ ] Route page under `src/app/` is a thin wrapper (controller + view, nothing else).
+- [ ] Translations added for any new user-facing strings (`messages/`).
+- [ ] If it should appear in nav, wired into the relevant shell (`components/layout/main-shell.tsx`).
+
+Prefer `npm run generate:feature -- <name>` (see `ARCHITECTURE.md`) over creating these by hand — it
+produces the right shape; the checklist above is what's still manual afterward.

@@ -1,0 +1,25 @@
+# Dependencies
+**/node_modules/
+**/.next/
+**/bin/
+**/obj/
+**/.vs/
+**/.dart_tool/
+**/.packages
+**/build/
+
+# Env / secrets
+.env
+.env.local
+.env.*.local
+challingo-deploy/api.env
+challingo-deploy/web.env
+challingo-deploy/server-files/.env
+challingo-api/.env
+challingo-web/.env.local
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+*.user

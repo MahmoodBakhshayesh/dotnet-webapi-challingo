@@ -1,0 +1,12 @@
+﻿---
+description: Challingo Worker conventions (background jobs)
+globs: "**/*Worker*/**/*.{cs}"
+alwaysApply: false
+---
+
+# Challingo Worker
+
+- Background job host only — no public HTTP. Lives in `Challingo.Worker` under the API folder.
+- Shares **Core** + **Infrastructure** with the API. Prefer queues/scheduled jobs over long sync work on request threads.
+- Local config: API folder `.env` (`Worker__*`, `Http__*`). Deploy via `challingo-deploy` worker scripts.
+- When changing shared DbContext/entities, keep Worker and API migrations aligned.

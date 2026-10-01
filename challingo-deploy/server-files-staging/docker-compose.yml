@@ -1,0 +1,146 @@
+﻿# Challingo staging stack — twin of server-files with isolated DB/volumes.
+# Public URLs (separate hostname from production):
+#   https://{domain}/              -> production web
+#   https://{domain}/api/          -> production API
+#   https://{stagingDomain}/       -> staging web (default staging.{domain})
+#   https://{stagingDomain}/api/   -> staging API
+# Without DNS: edge proxy IP:80 = prod, IP:81 = staging.
+# Images: :staging tags (promoted from TAG by server-up-staging.sh).
+# Registry: reuse production registry on the host (do not start a second one).
+
+name: challingo-staging
+
+services:
+  postgres:
+    image: challingo-postgres:16-alpine
+    container_name: challingo-staging-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-scaffoldadmin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_DB: ${POSTGRES_DB:-challingo_staging}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5435}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-scaffoldadmin} -d ${POSTGRES_DB:-challingo_staging}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - network
+    restart: unless-stopped
+
+  rabbitmq:
+    profiles: ["messaging"]
+    image: rabbitmq:3-management-alpine
+    container_name: challingo-staging-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-scaffold}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-changeme}
+    ports:
+      - "127.0.0.1:${RABBITMQ_HOST_PORT:-5673}:5672"
+      - "127.0.0.1:${RABBITMQ_MGMT_HOST_PORT:-15673}:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    networks:
+      - network
+    restart: unless-stopped
+
+  redis:
+    profiles: ["redis"]
+    image: redis:7-alpine
+    container_name: challingo-staging-redis
+    # AOF persistence + noeviction: leaderboards must never be silently evicted under memory pressure.
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction", "--requirepass", "${REDIS_PASSWORD:-changeme}"]
+    environment:
+      REDISCLI_AUTH: ${REDIS_PASSWORD:-changeme}
+    volumes:
+      - redis_data:/data
+    ports:
+      - "127.0.0.1:${REDIS_HOST_PORT:-6380}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    networks:
+      - network
+    restart: unless-stopped
+
+  challingo-api:
+    image: ${CHALLINGO_API_IMAGE}
+    container_name: challingo-staging-api
+    ports:
+      - "0.0.0.0:${API_HOST_PORT:-8081}:8080"
+    env_file: .env
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
+      Google__ClientId: ${Google__ClientId:-}
+    volumes:
+      - api_uploads:/app/wwwroot/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+        required: false
+      redis:
+        condition: service_healthy
+        required: false
+    networks:
+      - network
+    restart: unless-stopped
+
+  challingo-web:
+    image: ${CHALLINGO_WEB_IMAGE}
+    container_name: challingo-staging-web
+    ports:
+      - "0.0.0.0:${WEB_HOST_PORT:-3001}:3000"
+    environment:
+      API_INTERNAL_URL: http://challingo-api:8080
+    depends_on:
+      challingo-api:
+        condition: service_healthy
+    networks:
+      - network
+    restart: unless-stopped
+
+  challingo-worker:
+    image: ${CHALLINGO_WORKER_IMAGE}
+    container_name: challingo-staging-worker
+    env_file: .env
+    environment:
+      DOTNET_ENVIRONMENT: Production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+        required: false
+      redis:
+        condition: service_healthy
+        required: false
+      challingo-api:
+        condition: service_healthy
+    networks:
+      - network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    name: challingo-staging-postgres-data
+  api_uploads:
+    name: challingo-staging-api-uploads
+  redis_data:
+    name: challingo-staging-redis-data
+
+networks:
+  network:
+    name: challingo-staging-network
+    driver: bridge

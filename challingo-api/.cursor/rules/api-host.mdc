@@ -1,0 +1,13 @@
+---
+description: Challingo.Api host pipeline and DI
+globs: Challingo.Api/**/*.cs
+alwaysApply: false
+---
+
+# API host (`Challingo.Api`)
+
+- `Program.cs` loads `.env` via DotNetEnv when present.
+- `DependencyInjection.cs` registers DbContext, repositories, services.
+- Controllers inherit `AppController`.
+- Swagger documents `AppResponse` envelope.
+- Redis / SignalR: `AddScaffoldRedis()` + `AddScaffoldRealtime()` (Extensions/RealtimeExtensions.cs), hub mapped by `MapScaffoldRealtime()`. Push via `IRealtimeNotifier`, rank via `ILeaderboardStore`.

@@ -1,0 +1,253 @@
+﻿worker_processes auto;
+
+error_log /var/log/nginx/error.log notice;
+pid /run/nginx.pid;
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+
+    log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                    '$status $body_bytes_sent "$http_referer" '
+                    '"$http_user_agent" "$http_x_forwarded_for"';
+
+    access_log /var/log/nginx/access.log main;
+
+    sendfile on;
+    keepalive_timeout 65;
+
+    map $http_upgrade $connection_upgrade {
+        default upgrade;
+        ''      close;
+    }
+
+    # Docker containers (host ports from docker ps)
+    # delivery-web   127.0.0.1:3002 -> container :3000
+    # delivery-api   127.0.0.1:8082 -> container :8080
+    # mythstore-web  127.0.0.1:3001 -> container :3000
+    # mythstore-api  127.0.0.1:8081 -> container :8080
+    # teachclone-web 127.0.0.1:3003 -> container :3000
+    # teachclone-api 127.0.0.1:8083 -> container :8080
+
+    upstream deliver_web {
+        server 127.0.0.1:3002;
+    }
+    upstream deliver_api {
+        server 127.0.0.1:8082;
+    }
+    upstream store_web {
+        server 127.0.0.1:3001;
+    }
+    upstream store_api {
+        server 127.0.0.1:8081;
+    }
+    upstream teachclone_web {
+        server 127.0.0.1:3003;
+    }
+    upstream teachclone_api {
+        server 127.0.0.1:8083;
+    }
+
+    # =============================================================================
+    # teachclone.ir  —  TEACHCLONE (listed FIRST so HTTPS does not fall through to myth-delivery)
+    #   http://teachclone.ir/         → 127.0.0.1:3003
+    #   http://teachclone.ir/api/     → 127.0.0.1:8083
+    # VPS: sudo rm -f /etc/nginx/conf.d/teachclone.conf /etc/nginx/conf.d/*teachclone*
+    # =============================================================================
+
+    # HTTPS without Let's Encrypt: redirect to HTTP (create cert once — see teachclone-deploy/scripts/create-teachclone-redirect-cert.sh)
+    server {
+        listen 443 ssl http2;
+        server_name teachclone.ir www.teachclone.ir;
+
+        ssl_certificate /etc/nginx/ssl/teachclone-redirect.crt;
+        ssl_certificate_key /etc/nginx/ssl/teachclone-redirect.key;
+
+        return 301 http://teachclone.ir$request_uri;
+    }
+
+    server {
+        listen 80;
+        server_name www.teachclone.ir;
+        return 301 http://teachclone.ir$request_uri;
+    }
+
+    server {
+        listen 80;
+        server_name teachclone.ir;
+
+        client_max_body_size 520M;
+        gzip on;
+        gzip_types text/plain text/css application/json application/javascript text/xml application/xml image/svg+xml;
+        gzip_min_length 1024;
+
+        location ^~ /api/ {
+            proxy_pass http://teachclone_api;
+            proxy_http_version 1.1;
+            proxy_connect_timeout 120s;
+            proxy_send_timeout 600s;
+            proxy_read_timeout 600s;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection $connection_upgrade;
+        }
+
+        location ^~ /uploads/ {
+            proxy_pass http://teachclone_api/uploads/;
+            proxy_http_version 1.1;
+            proxy_connect_timeout 120s;
+            proxy_read_timeout 600s;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        location / {
+            proxy_pass http://teachclone_web;
+            proxy_http_version 1.1;
+            proxy_connect_timeout 60s;
+            proxy_read_timeout 120s;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection $connection_upgrade;
+        }
+    }
+
+    # =============================================================================
+    # myth-delivery.ir  —  DELIVER (delivery-web + delivery-api)
+    # =============================================================================
+
+    server {
+        listen 80;
+        server_name myth-delivery.ir www.myth-delivery.ir;
+        return 301 https://$host$request_uri;
+    }
+
+    server {
+        listen 443 ssl http2;
+        server_name myth-delivery.ir www.myth-delivery.ir;
+
+        ssl_certificate /etc/letsencrypt/live/myth-delivery.ir/fullchain.pem;
+        ssl_certificate_key /etc/letsencrypt/live/myth-delivery.ir/privkey.pem;
+        include /etc/letsencrypt/options-ssl-nginx.conf;
+        ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+        client_max_body_size 50M;
+        gzip on;
+        gzip_types text/plain text/css application/json application/javascript text/xml application/xml image/svg+xml;
+        gzip_min_length 1024;
+
+        location ^~ /api/ {
+            proxy_pass http://deliver_api/;
+            proxy_http_version 1.1;
+            proxy_connect_timeout 60s;
+            proxy_read_timeout 60s;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto https;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection $connection_upgrade;
+        }
+
+        location ^~ /uploads/ {
+            proxy_pass http://deliver_api/uploads/;
+            proxy_http_version 1.1;
+            proxy_connect_timeout 60s;
+            proxy_read_timeout 60s;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto https;
+        }
+
+        location / {
+            proxy_pass http://deliver_web;
+            proxy_http_version 1.1;
+            proxy_connect_timeout 60s;
+            proxy_read_timeout 60s;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto https;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection $connection_upgrade;
+        }
+    }
+
+    # =============================================================================
+    # mythezio.ir  —  STORE (mythstore-web + mythstore-api)
+    # =============================================================================
+
+    server {
+        listen 80;
+        server_name mythezio.ir www.mythezio.ir;
+        return 301 https://$host$request_uri;
+    }
+
+    server {
+        listen 443 ssl http2;
+        server_name mythezio.ir www.mythezio.ir;
+
+        ssl_certificate /etc/letsencrypt/live/mythezio.ir/fullchain.pem;
+        ssl_certificate_key /etc/letsencrypt/live/mythezio.ir/privkey.pem;
+        include /etc/letsencrypt/options-ssl-nginx.conf;
+        ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+        client_max_body_size 50M;
+        gzip on;
+        gzip_types text/plain text/css application/json application/javascript text/xml application/xml image/svg+xml;
+        gzip_min_length 1024;
+
+        location ^~ /api/ {
+            proxy_pass http://store_api/;
+            proxy_http_version 1.1;
+            proxy_connect_timeout 60s;
+            proxy_read_timeout 60s;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto https;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection $connection_upgrade;
+        }
+
+        location ^~ /uploads/ {
+            proxy_pass http://store_api/uploads/;
+            proxy_http_version 1.1;
+            proxy_connect_timeout 60s;
+            proxy_read_timeout 60s;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto https;
+        }
+
+        location / {
+            proxy_pass http://store_web;
+            proxy_http_version 1.1;
+            proxy_connect_timeout 60s;
+            proxy_read_timeout 60s;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto https;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection $connection_upgrade;
+        }
+    }
+
+    # Certbot / extra snippets — load LAST so teachclone blocks above are not overridden
+    include /etc/nginx/conf.d/*.conf;
+}

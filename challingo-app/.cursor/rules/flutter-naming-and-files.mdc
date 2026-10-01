@@ -1,0 +1,26 @@
+---
+description: Stack Flutter naming and file conventions for Flutter features
+alwaysApply: true
+---
+
+# Naming and File Conventions
+
+- Keep feature names in `snake_case` folders under `lib/features/`.
+- Use standard file names:
+  - `<feature>_view.dart`
+  - `<feature>_controller.dart`
+  - `<feature>_state.dart` or `<feature>_view_state.dart`
+  - `presentation/<feature>_view_phone.dart`
+  - `presentation/<feature>_view_tablet.dart`
+  - `presentation/<feature>_view_desktop.dart`
+- Use class names in `PascalCase` matching file intent (for example `RecipesController`).
+- Use provider names in `camelCase` with `Provider` suffix.
+- Keep use case naming:
+  - `<Action><Entity>Usecase`
+  - `<Action><Entity>Request`
+  - `<Action><Entity>Response`
+- Keep repository/data source naming:
+  - `<Feature>Repository`
+  - `<Feature>DataSourceRemote`
+  - `<Feature>DataSourceLocal`
+- Match existing neighboring feature style before introducing any new naming pattern.

@@ -1,0 +1,37 @@
+﻿# Example GitHub Actions workflow - copy to .github/workflows/build-push.yml in your repo root.
+# Set secrets: REGISTRY_HOST, REGISTRY_USER (optional), SSH key for VPS deploy.
+
+name: build-push
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '**/challingo-api/**'
+      - '**/challingo-api/Challingo.Worker/**'
+      - '**/challingo-web/**'
+      - '**/challingo-deploy/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and push API
+        run: |
+          cd challingo-deploy
+          ./build-and-push-api.sh
+
+      - name: Build and push Web
+        run: |
+          cd challingo-deploy
+          ./build-and-push-web.sh
+
+      - name: Build and push Worker
+        run: |
+          cd challingo-deploy
+          ./build-and-push-worker.sh
+
+      # Optional: copy server-files and run server-up.sh on VPS via SSH

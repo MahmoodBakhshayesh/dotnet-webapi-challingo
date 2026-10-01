@@ -1,0 +1,14 @@
+---
+description: React Query cache keys and error-handling conventions
+alwaysApply: true
+---
+
+# Query keys and errors
+
+- Every cache key comes from `lib/query-keys.ts` (`queryKeys.<entity>`) — never an inline array literal
+  in a component or controller. Add new entities there, don't hand-roll a key next to the `useQuery` call.
+- Controllers catch failures via `useMutation`'s `onError` (or a try/catch around a direct usecase call)
+  and route them through `toastError`/`toastAppError` (`lib/toast-error.ts`) — never a bare
+  `console.error` or a swallowed error.
+- Need a load that shouldn't surface a toast (e.g. a background prefetch)? Add a `silent?: boolean` param
+  to the controller function rather than special-casing error handling per call site.

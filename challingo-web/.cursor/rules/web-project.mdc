@@ -1,0 +1,18 @@
+﻿---
+description: Challingo web conventions
+globs: "**/*.{ts,tsx,js,jsx}"
+alwaysApply: false
+---
+
+# Challingo Web
+
+- Use `src/lib/env.ts` for `NEXT_PUBLIC_*` access.
+- Server components by default; add `"use client"` only when needed.
+- Match API contract with OpenAPI / shared DTO naming from Challingo API.
+- Motion is available via `motion/react` — follow `.cursor/rules/web-ui-motion.mdc` and
+  `web-forms-density.mdc` (do not invent a second animation library).
+- Advanced landing patterns (`CountUp`, `Magnetic`, `Marquee`, `ScrollSteps`) are documented in
+  `web-advanced-interactions.mdc`; icon pack split in `web-icons.mdc`.
+- New CRUD features mirror the `users` / `roles` / `organizations` / `auth` feature shape:
+  `repositories/` (transport only) → `usecases/` (one per file) → `controllers/` (owns state,
+  orchestrates via React Query) → `views/` (presentational only). See `ARCHITECTURE.md`.

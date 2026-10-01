@@ -1,0 +1,181 @@
+﻿# Challingo stack - run on VPS from server-files folder
+# Project + network grouping: all app services share challingo-network (private DNS).
+
+name: challingo
+
+services:
+  postgres:
+    image: challingo-postgres:16-alpine
+    container_name: challingo-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-scaffoldadmin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_DB: ${POSTGRES_DB:-challingo}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5434}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-scaffoldadmin} -d ${POSTGRES_DB:-challingo}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - network
+    restart: unless-stopped
+
+  rabbitmq:
+    profiles: ["messaging"]
+    image: rabbitmq:3-management-alpine
+    container_name: challingo-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-scaffold}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-changeme}
+    ports:
+      - "127.0.0.1:${RABBITMQ_HOST_PORT:-5672}:5672"
+      - "127.0.0.1:${RABBITMQ_MGMT_HOST_PORT:-15672}:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    networks:
+      - network
+    restart: unless-stopped
+
+  redis:
+    profiles: ["redis"]
+    image: redis:7-alpine
+    container_name: challingo-redis
+    # AOF persistence + noeviction: leaderboards must never be silently evicted under memory pressure.
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction", "--requirepass", "${REDIS_PASSWORD:-changeme}"]
+    environment:
+      REDISCLI_AUTH: ${REDIS_PASSWORD:-changeme}
+    volumes:
+      - redis_data:/data
+    ports:
+      - "127.0.0.1:${REDIS_HOST_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    networks:
+      - network
+    restart: unless-stopped
+
+  challingo-api:
+    image: ${CHALLINGO_API_IMAGE}
+    container_name: challingo-api
+    ports:
+      - "0.0.0.0:${API_HOST_PORT:-8080}:8080"
+    env_file: .env
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
+      Google__ClientId: ${Google__ClientId:-}
+    volumes:
+      - api_uploads:/app/wwwroot/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+        required: false
+      redis:
+        condition: service_healthy
+        required: false
+    networks:
+      - network
+    restart: unless-stopped
+
+  challingo-web:
+    image: ${CHALLINGO_WEB_IMAGE}
+    container_name: challingo-web
+    ports:
+      - "0.0.0.0:${WEB_HOST_PORT:-3000}:3000"
+    environment:
+      API_INTERNAL_URL: http://challingo-api:8080
+    depends_on:
+      challingo-api:
+        condition: service_healthy
+    networks:
+      - network
+    restart: unless-stopped
+
+  challingo-worker:
+    image: ${CHALLINGO_WORKER_IMAGE}
+    container_name: challingo-worker
+    env_file: .env
+    environment:
+      DOTNET_ENVIRONMENT: Production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+        required: false
+      redis:
+        condition: service_healthy
+        required: false
+      challingo-api:
+        condition: service_healthy
+    networks:
+      - network
+    restart: unless-stopped
+
+  seq:
+    profiles: ["observability"]
+    image: datalust/seq:latest
+    container_name: challingo-seq
+    environment:
+      ACCEPT_EULA: "Y"
+    ports:
+      - "127.0.0.1:${SEQ_HOST_PORT:-5341}:80"
+    volumes:
+      - seq_data:/data
+    networks:
+      - network
+    restart: unless-stopped
+
+  uptime-kuma:
+    profiles: ["observability"]
+    image: louislam/uptime-kuma:1
+    container_name: challingo-uptime-kuma
+    ports:
+      - "127.0.0.1:${UPTIME_KUMA_HOST_PORT:-3001}:3001"
+    volumes:
+      - uptime_kuma_data:/app/data
+    networks:
+      - network
+    restart: unless-stopped
+
+  registry:
+    profiles: ["registry"]
+    image: registry:2
+    container_name: challingo-registry
+    ports:
+      - "${REGISTRY_HOST_PORT:-8585}:5000"
+    volumes:
+      - registry-data:/var/lib/registry
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    name: challingo-postgres-data
+  api_uploads:
+    name: challingo-api-uploads
+  redis_data:
+    name: challingo-redis-data
+  registry-data:
+    name: challingo-registry-data
+  seq_data:
+    name: challingo-seq-data
+  uptime_kuma_data:
+    name: challingo-uptime-kuma-data
+
+networks:
+  network:
+    name: challingo-network
+    driver: bridge

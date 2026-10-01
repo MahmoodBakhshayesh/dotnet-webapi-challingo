@@ -1,0 +1,20 @@
+---
+description: Scroll and entrance motion for marketing/landing pages
+globs: src/components/home/**/*.tsx,src/app/**/page.tsx
+alwaysApply: false
+---
+
+# Landing page motion
+
+- Use `motion` (`motion/react`), already a dependency. Do not add another animation library.
+- Wrap sections below the hero in `<Reveal>` (`@/components/motion/reveal`) so they fade up + in as they
+  scroll into view. For grids of cards/features/stats, use `<Reveal stagger>` with `<RevealItem>` children.
+- Hero content animates once on mount (`fadeUp`/`fadeIn` from `@/lib/motion`), not on scroll — it's
+  already in the viewport on load.
+- Standard entrance: opacity 0→1 + translateY 24px→0, 0.5–0.6s, `EASE_OUT` from `@/lib/motion`. Reuse the
+  shared variants; don't invent new durations/easings per section.
+- Stagger siblings 0.08–0.12s apart (`staggerContainer` default). Don't stagger more than ~6 direct
+  children — batch larger grids into rows instead.
+- Always respect `prefers-reduced-motion`. `<Reveal>` already disables itself via `useReducedMotion()` —
+  don't bypass it with a raw `motion.div`.
+- Keep it subtle: no bounce/spring, no rotation, no flicker. This is product/marketing motion, not a game.

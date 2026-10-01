@@ -1,0 +1,9 @@
+{
+  "folders": [
+    { "name": "challingo-api", "path": "challingo-api" },
+    { "name": "challingo-web", "path": "challingo-web" },
+    { "name": "challingo-app", "path": "challingo-app" },
+    { "name": "challingo-deploy", "path": "challingo-deploy" }
+  ],
+  "settings": {}
+}

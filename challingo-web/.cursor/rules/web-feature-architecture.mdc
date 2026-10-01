@@ -1,0 +1,22 @@
+---
+description: Feature layering rules for src/features
+alwaysApply: true
+---
+
+# Feature architecture
+
+Every feature under `src/features/<name>/` follows: `repositories/` → `usecases/` → `controllers/` →
+`views/`. Nothing skips a layer.
+
+- **Repositories** (`repositories/<name>.repository.ts`): transport only. Wrap `apiJson` calls. No
+  business rules, no React, no state.
+- **Use cases** (`usecases/<action>-<entity>.usecase.ts`): one exported function per file, one repository
+  call, unwrap via `isAppSuccess`/`appErrorMessage`, throw `Error` on failure. Never called from a view.
+- **Controllers** (`controllers/<name>.controller.ts`, a `"use client"` hook): own transient UI state,
+  orchestrate use cases via React Query `useMutation`/`useQuery`. Never call a repository directly. Export
+  a `<Name>ViewModel` type via `ReturnType<typeof use<Name>Controller>`.
+- **Views** (`views/<name>.view.tsx`): presentational only. Take the controller's view-model as props,
+  render, call `actions.*`. No `apiJson`, `useQuery`, `useMutation`, or repository/usecase imports.
+- Route pages under `src/app/` are thin: call the controller hook, render the view with its result.
+  Business/data logic does not live in a page component — see `src/features/users/` for the reference
+  shape (not the old `src/features/admin/`, which no longer exists after this rule was added).

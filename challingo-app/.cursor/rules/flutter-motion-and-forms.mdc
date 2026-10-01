@@ -1,0 +1,23 @@
+---
+description: Motion and dense-form conventions for Flutter features
+alwaysApply: false
+---
+
+# Motion and forms
+
+- List/grid entrance: wrap itemBuilder output in `StaggeredReveal` (cap the staggered index around 8-10
+  items). Loading state for list/grid screens: `ShimmerListPlaceholder` via `AsyncProviderWidget`'s
+  `loadingBuilder` — keep `LoadingWidget` (SpinKit) for full-screen/modal loads.
+- Multi-step/conditional form sections swap through `AnimatedFormSection`, keyed by step/section id —
+  never a hard `IndexedStack`/conditional swap with no transition.
+- List→detail navigation pairs use a `Hero` with a shared `tag` (entity id) on the image/title — only
+  when both a list item and its detail screen exist for that feature.
+- Primary/CTA buttons get a press-scale + `HapticFeedback.lightImpact()` (see `AppButton`). Don't apply
+  this to every tappable element — reserve it for the 1-2 primary actions per screen.
+- Every field/button height traces back to `AppDimens.controlHeight`, not a one-off literal, so controls
+  in the same row line up. Mixed-width form rows use `Row`/`Wrap` with `Flexible` weights matched to what
+  each field holds (numeric/OTP narrow, text wider) instead of stacking every field full-width in a
+  `Column`.
+- Confirmation moments (save succeeded, payment complete) use `SuccessAnimation`
+  (`assets/animations/check.json` via `lottie`), not a toast alone — reserve it for genuine success
+  states, not routine loads.

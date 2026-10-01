@@ -1,0 +1,7 @@
+﻿<Solution>
+  <Project Path="Challingo.Api/Challingo.Api.csproj" DefaultStartup="true" />
+  <Project Path="Challingo.Core/Challingo.Core.csproj" Id="bf25423c-4431-4cb2-8578-af8b68610b60" />
+  <Project Path="Challingo.Infrastructure/Challingo.Infrastructure.csproj" Id="23475375-ad8a-4250-b313-7807edb2b2e4" />
+  <Project Path="Challingo.Worker/Challingo.Worker.csproj" />
+  <Project Path="Challingo.Tests/Challingo.Tests.csproj" />
+</Solution>

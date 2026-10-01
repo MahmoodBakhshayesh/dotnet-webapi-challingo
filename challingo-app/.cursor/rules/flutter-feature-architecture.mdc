@@ -1,0 +1,21 @@
+---
+description: Stack Flutter feature architecture and layering rules
+alwaysApply: true
+---
+
+# Stack Flutter Feature Architecture
+
+- Follow strict flow: `View -> Controller -> UseCase -> Repository -> DataSource`.
+- Organize by feature under `lib/features/<feature_name>/`.
+- Keep responsive view dispatcher in `<feature>_view.dart` and actual UIs in `presentation/`.
+- Keep business request/response in `usecases/`; keep API/DB access only in data sources.
+- Keep route names in `core/navigation/app_route_names.dart` and routes in `core/navigation/router_provider.dart`.
+- Register every new data source, repository, and use case in `lib/di.dart`.
+- Match existing JSON contract style: request body usually under `"Body" -> "Request"`.
+- Do not introduce new architecture patterns unless explicitly requested by user.
+
+# Implementation Style
+
+- Mirror nearby feature naming and file patterns before inventing abstractions.
+- Keep edits minimal and local; avoid cross-feature refactors unless user asks.
+- Surface API failures through existing failure flow (`FailureBus`) used in this codebase.

@@ -1,0 +1,16 @@
+# .NET / Visual Studio
+bin/
+obj/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Env / secrets
+.env
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/

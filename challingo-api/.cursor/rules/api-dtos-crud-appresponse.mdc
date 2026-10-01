@@ -1,0 +1,13 @@
+---
+description: DTO and AppResponse conventions
+alwaysApply: false
+---
+
+# DTOs and AppResponse
+
+Per feature, folder under `Challingo.Core/DTO/{Feature}Dto/`:
+
+- `{Action}{Entity}Request` / `{Entity}Response`
+- Static `{Feature}Mappers` class
+
+Services return `AppResponse` / `AppResponse<T>` — not raw entities to controllers.

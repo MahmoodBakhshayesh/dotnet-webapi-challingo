@@ -1,0 +1,67 @@
+﻿using Challingo.Core.Domain.Entities;
+using Challingo.Core.Domain.IdentityEntities;
+using Challingo.Infrastructure.DbContexts.Configurations;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
+using System;
+using System.Collections.Generic;
+using System.Text;
+
+namespace Challingo.Infrastructure.DbContexts
+{
+    public class AppDbContext : IdentityDbContext<AppUser,AppRole,Guid,IdentityUserClaim<Guid>,AppUserRole,IdentityUserLogin<Guid>,IdentityRoleClaim<Guid>,IdentityUserToken<Guid>>
+    {
+        public AppDbContext (DbContextOptions options): base(options)
+        {
+
+        }
+
+        public DbSet<Organization> Organizations { set; get; }
+        public DbSet<RefreshToken> RefreshTokens { set; get; }
+        public DbSet<PhoneOtpChallenge> PhoneOtpChallenges { set; get; }
+
+        protected override void OnModelCreating(ModelBuilder builder)
+        {
+            base.OnModelCreating(builder);
+            // Must run after base: maps AppUserRole.User/Role navigations onto the existing
+            // UserId/RoleId FKs (otherwise EF adds shadow UserId1/RoleId1 columns).
+            builder.ApplyConfiguration(new Configurations.AppUserRoleConfiguration());
+            builder.ApplyConfiguration(new Configurations.PhoneOtpChallengeConfiguration());
+            builder.ApplyConfiguration(new Configurations.OrganizationConfiguration());
+        }
+
+        public override int SaveChanges() =>
+            SaveChangesAsync().GetAwaiter().GetResult();
+
+        public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            ApplyAuditAndSoftDelete();
+            return base.SaveChangesAsync(cancellationToken);
+        }
+
+        private void ApplyAuditAndSoftDelete()
+        {
+            var now = DateTime.UtcNow;
+            foreach (var entry in ChangeTracker.Entries<BaseEntity>())
+            {
+                switch (entry.State)
+                {
+                    case EntityState.Added:
+                        entry.Entity.CreatedAt = now;
+                        entry.Entity.UpdatedAt = null;
+                        break;
+                    case EntityState.Modified:
+                        entry.Entity.UpdatedAt = now;
+                        break;
+                    case EntityState.Deleted:
+                        entry.State = EntityState.Modified;
+                        entry.Entity.IsDeleted = true;
+                        entry.Entity.UpdatedAt = now;
+                        break;
+                }
+            }
+        }
+    }
+}
+

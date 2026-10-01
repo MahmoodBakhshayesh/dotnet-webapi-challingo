@@ -1,0 +1,20 @@
+---
+description: Quality gate before finishing Flutter feature changes
+alwaysApply: true
+---
+
+# Change Quality Gate
+
+Before finalizing any implementation:
+
+- Run targeted analyzer/lint checks for changed files.
+- Ensure no unresolved imports or missing registrations.
+- Confirm new providers/controllers are actually used by views/routes.
+- Avoid dead code and unused variables introduced by refactor.
+- Keep changes scoped to user request; avoid opportunistic broad rewrites.
+- Preserve existing UX patterns unless user requested UI behavior changes.
+
+# Response Quality
+
+- Explain what changed, where, and why in concise project-specific language.
+- Call out assumptions or backend contract dependencies when relevant.

@@ -1,0 +1,16 @@
+---
+description: Stack API solution layout and dependency direction
+alwaysApply: false
+---
+
+# Solution structure
+
+Projects (prefix **`Challingo`** → replaced by scaffold copy + token expand):
+
+| Project | Role |
+|---------|------|
+| `Challingo.Api` | HTTP: controllers, DI, middleware, Swagger |
+| `Challingo.Core` | Domain, interfaces, DTOs, service implementations |
+| `Challingo.Infrastructure` | EF Core, repositories, migrations |
+
+Register new features in `Challingo.Api/DependencyInjection.cs`.

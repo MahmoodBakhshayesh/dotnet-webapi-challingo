@@ -1,0 +1,40 @@
+﻿---
+description: Deploy/publish lessons — staging hosts, AutoMigrate, promote image prefix, env escaping
+globs: "**/deploy/**/*,**/server-files/**/*,**/server-files-staging/**/*,**/Set-PublishSettings.ps1,**/sync-server-env*,**/promote-staging-to-prod.sh,**/scaffold-edge-proxy.py"
+alwaysApply: false
+---
+
+# Deploy & publish (hard-won fixes)
+
+## Staging is a separate host — never a path prefix
+
+- Do **not** use `/_staging` or `/api/_staging` path routing. It breaks Next.js soft navigation and asset URLs.
+- Production: `{domain}/` + `/api/` (or edge `http://IP:80/`).
+- Staging: `{stagingDomain}/` + `/api/` (default `staging.{domain}`), or edge `http://IP:81/`.
+- Web image uses same-origin `NEXT_PUBLIC_API_URL=/api` on both hosts — no `basePath`, no StagingPathGuard.
+
+## Database first boot
+
+- `sync-server-env` / `sync-server-env-staging` must set `Database__AutoMigrate=true` for VPS `.env` so empty Postgres gets EF migrations + SeedAdmin.
+- Keep a **single API replica** while AutoMigrate is true.
+- Always rebuild `ConnectionStrings__Database` from `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` — never leave a stale `Username=scaffoldadmin` when POSTGRES_USER is `admin`.
+
+## Env file quoting
+
+- Passwords with `#` / `!` must go through `Format-EnvLine` + peel-unquote (`Unquote-EnvValue` loop). Never double-quote or remangle on every save.
+- Preserve `Auth__SeedAdminEmail` / `Auth__SeedAdminPassword` through sync.
+
+## Promote / rollback image names
+
+- Resolve Docker image prefix from `DOCKER_PREFIX` or `*_API_IMAGE` (e.g. `energyplatform`), **not** the workspace folder name (`hormoz-energy-platform`).
+- Prefer local `:staging` / version tags before registry pull; registry repos are `{prefix}-api|web|worker`.
+
+## Edge vs nginx
+
+- Temporary IP access: `install-edge.sh` → prod `:80`, staging `:81`.
+- Edge proxy must force `Accept-Encoding: identity` and drop `Content-Encoding` (urllib already decompresses).
+- Real domain: GUI Domain card / `Set-PublishSettings` nginx with **two** `server_name` blocks; applying domain stops `scaffold-edge`.
+
+## GUI Remote Servers
+
+- SSH profiles live under **Remote Servers** (CRUD + test). Secrets in `gui-secrets.local.json`. Deleting a server must prune its secrets.

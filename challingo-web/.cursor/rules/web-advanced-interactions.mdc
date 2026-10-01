@@ -1,0 +1,23 @@
+---
+description: Count-up stats, magnetic hover, scroll-driven steps, marquee
+globs: src/components/home/**/*.tsx,src/app/**/page.tsx
+alwaysApply: false
+---
+
+# Advanced landing interactions
+
+- Animated stat numbers always go through `<CountUp>` (`@/components/motion/count-up`) — never hand-roll
+  a `useState` + `setInterval` counter.
+- Reserve `<Magnetic>` (`@/components/motion/magnetic`) for the 2–3 primary CTAs/hero links per page, not
+  every button — it's meant to feel special, not ambient.
+- Use `<ScrollSteps>` (`@/components/motion/scroll-steps`) for a "how it works"/process section that
+  reads top-to-bottom as the user scrolls through an explanation (3–6 steps). For a plain numbered grid
+  with no scroll-tracked narrative, use `<Reveal stagger>` instead (see `web-ui-motion.mdc`).
+- Use `<Marquee>` (`@/components/motion/marquee`) for logo strips / featured-work rows — pass it one row
+  of items, it duplicates them itself. Don't build a second bespoke marquee implementation.
+- Smooth/inertia page scroll (`SmoothScrollProvider`, `lenis`) is opt-in per project, not a default —
+  only wire it up if the project explicitly wants an agency-site scroll feel, and never on routes with
+  dense tables or long forms.
+- Every effect here must no-op or simplify under `prefers-reduced-motion` — `<CountUp>` jumps straight to
+  the final value, `<Marquee>` relies on Tailwind's `motion-safe:` variant, `<Magnetic>` checks
+  `useReducedMotion()`. Don't remove those checks to "simplify" a component.

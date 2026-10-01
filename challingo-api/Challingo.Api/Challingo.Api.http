@@ -1,0 +1,3 @@
+@ChallingoApi_HostAddress = http://localhost:5101
+
+GET {{ChallingoApi_HostAddress}}/weatherforecast/

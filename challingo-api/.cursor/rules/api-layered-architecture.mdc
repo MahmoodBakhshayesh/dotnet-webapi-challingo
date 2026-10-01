@@ -1,0 +1,12 @@
+---
+description: Layered architecture boundaries for stack API template
+alwaysApply: false
+---
+
+# Layered architecture
+
+1. **Controllers** (`Challingo.Api/Controllers/`) — inject service interfaces only.
+2. **Services** (`Challingo.Core/Services/`) — implement `Challingo.Core.ServiceInterfaces`; use repository interfaces.
+3. **Repositories** (`Challingo.Infrastructure/Repositories/`) — implement `Challingo.Core.Domain.RepositoryInterfaces`; use `AppDbContext`.
+
+No `DbContext` in controllers or services.

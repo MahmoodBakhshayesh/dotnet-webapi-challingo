@@ -1,0 +1,12 @@
+Stack API template (on-disk source)
+
+No install step. New-Project copies this folder and renames Challingo → your Pascal name.
+
+  Windows:  .\New-Project.ps1 -Challingo MyShop
+  macOS:    ./new-project.sh -Challingo MyShop
+            (requires: brew install --cask powershell — see docs/en/MACOS.md)
+
+Optional verify: .\Install-ApiTemplate.ps1
+
+Includes traffic resilience options (RateLimit, RequestTimeout, Http, Idempotency)
+configured via api.env / api-local.env — see SETUP-GUIDE.md in deploy-template.

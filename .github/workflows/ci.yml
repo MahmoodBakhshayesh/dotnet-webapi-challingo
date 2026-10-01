@@ -1,0 +1,114 @@
+﻿# Copy to .github/workflows/ci.yml at monorepo root (tokens expanded by New-Project.ps1).
+
+name: CI
+
+
+
+on:
+
+  push:
+
+    branches: [main, master]
+
+  pull_request:
+
+    branches: [main, master]
+
+
+
+jobs:
+
+  api:
+
+    runs-on: ubuntu-latest
+
+    defaults:
+
+      run:
+
+        working-directory: challingo-api
+
+    steps:
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+
+        with:
+
+          dotnet-version: "10.0.x"
+
+      - name: Restore and build API
+
+        run: |
+
+          dotnet restore Challingo.Api/Challingo.Api.csproj
+
+          dotnet build Challingo.Api/Challingo.Api.csproj --no-restore -c Release
+
+      - name: Test API
+
+        run: |
+
+          dotnet test Challingo.Tests/Challingo.Tests.csproj -c Release
+
+
+
+  web:
+
+    runs-on: ubuntu-latest
+
+    defaults:
+
+      run:
+
+        working-directory: challingo-web
+
+    steps:
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+
+        with:
+
+          node-version: "22"
+
+          cache: npm
+
+          cache-dependency-path: challingo-web/package-lock.json
+
+      - run: npm ci
+
+      - run: npm run build
+
+
+
+  worker:
+
+    runs-on: ubuntu-latest
+
+    defaults:
+
+      run:
+
+        working-directory: challingo-api
+
+    steps:
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+
+        with:
+
+          dotnet-version: "10.0.x"
+
+      - name: Build worker
+
+        run: |
+
+          dotnet restore Challingo.Worker/Challingo.Worker.csproj
+
+          dotnet build Challingo.Worker/Challingo.Worker.csproj --no-restore -c Release
+

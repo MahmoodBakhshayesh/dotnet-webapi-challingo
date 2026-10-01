@@ -1,0 +1,23 @@
+---
+description: Always-on overview for stack API template layered architecture
+alwaysApply: true
+---
+
+# Stack API template — agent overview
+
+Follow scoped rules in **`.cursor/rules/`** and **`AGENTS.md`**.
+
+## Non-negotiables
+
+- **Controllers** → **service interfaces** only; **EF / `DbContext` / repositories** only in **Infrastructure**.
+- **Domain entities** → inherit **`BaseEntity`** (not Identity types).
+- **Services** return outcomes via **`AppResponse`** / **`AppResponse<T>`**.
+- **DTOs** in **`Challingo.Core/DTO/{Feature}Dto/`** with **Request / Response / `{Feature}Mappers`**.
+- **New CRUD** mirrors **Organization** + **Users** + **Auth** patterns.
+- Register new pairs in **`DependencyInjection`**.
+
+## Layout
+
+`Challingo.Api` · `Challingo.Core` · `Challingo.Infrastructure`
+
+Token **`Challingo`** is replaced by scaffold copy + token expand (`Install-ApiProject`).

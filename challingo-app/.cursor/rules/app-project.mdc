@@ -1,0 +1,11 @@
+﻿---
+description: Challingo Flutter conventions
+globs: "**/*.dart"
+alwaysApply: false
+---
+
+# Challingo Flutter
+
+- Feature-first folder layout from `mbkh_app` brick.
+- New features: `mason make mbkh_feat ...`
+- Use Riverpod for state; keep widgets thin.

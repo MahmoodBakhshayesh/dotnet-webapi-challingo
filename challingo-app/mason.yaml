@@ -1,0 +1,5 @@
+bricks:
+  mbkh_app:
+    path: "../../cursor-scaffold/templates/app-template/app-scaffold"
+  mbkh_feat:
+    path: "../../cursor-scaffold/templates/app-template/feature-scaffold"

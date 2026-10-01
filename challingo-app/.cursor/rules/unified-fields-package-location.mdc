@@ -1,0 +1,26 @@
+---
+description: Canonical filesystem path for the unified_fields Flutter package (cross-repo edits and pubspec path deps).
+alwaysApply: true
+---
+
+# unified_fields package location
+
+The **`unified_fields`** package is maintained as a **sibling folder** next to the generated app (same parent directory), not as a path inside this repo.
+
+Brick dependency version: **`^1.0.1+3`**
+
+When editing that package, opening files, or wiring a **`path:`** dependency from generated apps, prefer a **relative** `path:` that points at the sibling folder — not machine-specific absolute paths.
+
+**`pubspec.yaml` example:**
+
+```yaml
+dependencies:
+  unified_fields: ^1.0.1+3
+  # or path dependency when developing the package locally:
+  # unified_fields:
+  #   path: ../unified_fields
+```
+
+Forward slashes in `path:` are fine on Windows. Prefer a **relative** `path:` when the app is a sibling of `unified_fields` under the same parent folder.
+
+**Brick convention:** per-app field chrome lives in `lib/widgets/inputs/<project_name>_field_decoration.dart` (`*FieldDecoration.textField` / `.singlePicker`).

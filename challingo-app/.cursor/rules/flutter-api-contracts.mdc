@@ -1,0 +1,25 @@
+---
+description: Stack Flutter API request-response and error-handling conventions
+alwaysApply: true
+---
+
+# API Contract Conventions
+
+- Keep request models in `usecases/` and map payloads via `Request.apiEnvelope({...})` in `toJson()`.
+- Standard envelope: `{ "Body": { "Token"?: "...", "Request": { ... } } }`.
+- Remote endpoints live in `DataSourceRemote` only; parse with `RemoteResponseParser` (`parseBodyObjectOrNull`, `parseBodyListOrNull`).
+- Repositories use `mapUseCaseResponse` / `mapUseCaseResponseVoid` — no manual try/catch per method.
+- Use cases extend `RepositoryUseCase` / `RepositoryVoidUseCase` and return `Result<T>` via `.call()`.
+- Controllers invoke use cases through `runUseCase`, `runUseCaseOrNull`, or `runVoidUseCase` — never repositories or data sources.
+- User-facing failures: `FailureBus` → `GlobalFailureListener` → `FailurePresenter`. Use `emitFailures: false` / `notifyOnFailure: false` for silent loads.
+- Entity `fromJson` must use `core/helpers/json_validators.dart` (`expectString`, `expectInt`, etc.) — not raw `json["Field"]`.
+- Decode errors are formatted by `error_message_formatter.dart` and logged with `failure_logger.dart` (primary `Entity.fromJson` site).
+
+# HTTP logging
+
+- `ApiService` uses `NetworkLogLevel` (default `none`). Enable globally via `ApiService(logLevel: NetworkLogLevel.full)` or per request `enableLogs: true`.
+- Logs are plain text (copy-friendly JSON bodies).
+
+# Mutation Refresh Rule
+
+- After successful create/edit/delete/upload/rate, invalidate relevant async providers.

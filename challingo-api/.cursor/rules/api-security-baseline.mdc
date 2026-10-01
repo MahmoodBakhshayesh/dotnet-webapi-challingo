@@ -1,0 +1,26 @@
+---
+description: Security and config baseline for the API/Worker
+globs: Challingo.Api/**/*.cs,Challingo.Worker/**/*.cs,Challingo.Infrastructure/**/*.cs
+alwaysApply: false
+---
+
+# Security & config baseline
+
+- Never hardcode a real-looking secret, admin email, or admin password as a literal in `.cs` files —
+  even as a "default." Route it through configuration (`IOptions<T>`), with `ValidateOnStart` rejecting
+  known-placeholder values when `ASPNETCORE_ENVIRONMENT == "Production"`.
+- Every new `IOptions<T>` config section that gates real behavior (feature flags, resilience settings,
+  security settings) must actually be read where the behavior happens. A settings class that's bound and
+  logged but never consulted (see `Database:AutoMigrate` before this was fixed) is a bug, not a TODO —
+  don't add one without wiring it through.
+- CORS origins always come from `Cors:AllowedOrigins` configuration, never a hardcoded array. Local-dev
+  fallback origins are fine when the config section is empty, but the fallback must never be the *only*
+  path.
+- Anything that talks to the database on startup (migrations, seeding) must respect
+  `Database:AutoMigrate` and must not swallow a real failure into "keep running" without also failing the
+  `/health/ready` check.
+- New Docker services (api, worker, web, or anything added later) get a `HEALTHCHECK` in their Dockerfile
+  and a `condition: service_healthy` dependency from whatever depends on them in `docker-compose.yml` —
+  not a plain `depends_on:` list entry.
+- Keep a **single API replica** while `Database:AutoMigrate` is true. Concurrent `MigrateAsync` from
+  multiple replicas is unsafe; set `Database__AutoMigrate=false` and migrate out-of-band before scaling.

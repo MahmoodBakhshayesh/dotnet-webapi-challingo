@@ -1,0 +1,14 @@
+---
+description: Quality gate before finishing web feature changes
+alwaysApply: true
+---
+
+# Change quality gate
+
+Before finishing any feature change:
+
+- No `apiJson`/`useQuery`/`useMutation` import in a `views/*.view.tsx` file.
+- No business logic (validation beyond simple required-field checks, data transformation, API calls) in a
+  `src/app/**/page.tsx` route file.
+- Every new use case is one file, one repository call.
+- `npm run lint` and `npx tsc --noEmit` both pass.

@@ -1,0 +1,24 @@
+---
+description: Dense form layout, control sizing, and content-swap animation
+globs: src/**/*form*.tsx,src/**/*Form*.tsx,src/components/ui/{input,select,textarea,button,label}.tsx
+alwaysApply: false
+---
+
+# Forms: density, alignment, motion
+
+- Lay out multi-field forms with `.form-grid` (12-col grid, defined in `globals.css`) and the per-field
+  span classes: `field-xs` (zip/short codes), `field-sm` (phone/city/dates), `field-md` (name/email, half
+  width), `field-lg`, `field-full` (address lines, textareas, submit row). Reuse these instead of
+  hand-writing `grid-cols-*`/`col-span-*` so every form in the app aligns the same way.
+- Every control in a form row (`Input`, `Select`, `Button`) shares one height via the `h-control` utility
+  (backed by `--control-h` in `globals.css`), so a field and its adjacent button/icon-button line up.
+  Don't override height ad hoc — change `--control-h` globally if the density needs to change.
+- When content inside a form swaps (wizard step, tab panel, conditional field group), wrap it in
+  `<AnimatedContent>` (`@/components/motion/animated-content`) keyed by the step/tab id, instead of a
+  hard cut or `display:none` toggle. It crossfades and animates the height change so surrounding layout
+  doesn't jump.
+- Cards/panels containing a form get `shadow-sm` (or `shadow-md` if elevated/modal-like) plus the
+  existing `border-border` — never a shadow without a border, never a heavy/dark drop shadow, never a
+  custom inline `box-shadow`. The `shadow-xs/sm/md/lg` scale is already tuned in `globals.css`.
+- Required/primary fields first, optional/secondary last. Label above input (not inline) for scanability
+  in a dense grid.

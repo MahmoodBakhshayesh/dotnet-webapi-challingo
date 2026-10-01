@@ -1,0 +1,18 @@
+---
+description: Keep usecases isolated with one usecase per file
+alwaysApply: true
+---
+
+# One UseCase Per File
+
+- Use exactly one use case class per file in `features/<feature>/usecases/`.
+- Name file by the use case action, for example:
+  - `edit_coffee_usecase.dart`
+  - `upload_coffee_image_usecase.dart`
+  - `delete_coffee_photo_usecase.dart`
+- Keep each use case's request/response types in the same file as that use case.
+- Do not bundle multiple use case classes in a single file.
+
+# Refactor Rule
+
+- When adding another action to a feature, create a new usecase file instead of extending an existing multi-usecase file.

@@ -1,0 +1,15 @@
+---
+description: Icon pack usage — lucide vs phosphor
+globs: src/**/*.tsx
+alwaysApply: false
+---
+
+# Icons
+
+- `lucide-react` is the default everywhere, especially dense app/dashboard UI (`(app)` routes, tables,
+  forms, nav). Keep using it there — don't replace existing lucide icons.
+- `@phosphor-icons/react`, `duotone` weight, is for marketing/landing sections only (`home/`, hero,
+  feature/pricing grids) where a richer two-tone icon fits the larger type and spacing.
+- Never mix packs for the same concept in the same view. Never mix Phosphor weights in one section.
+- Size icons via the `size-*` Tailwind utility (matches the existing `button.tsx` convention of
+  `[&_svg:not([class*='size-'])]:size-4`), not raw `width`/`height` props.

@@ -1,0 +1,12 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  exclude:
+    # Generated icon font map (snake_case names match font glyphs).
+    - lib/core/theme/artemis_icons.dart
+    # Vendored scrollable_positioned_list fork; cacheExtent API pending migration.
+    - lib/widgets/scrollableList/**
+
+linter:
+  rules:
+    prefer_single_quotes: true

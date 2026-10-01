@@ -1,0 +1,15 @@
+---
+description: Riverpod async provider conventions for details/editing flows
+alwaysApply: true
+---
+
+# Riverpod Provider Conventions
+
+- For server-backed details/editing entities, prefer `FutureProvider`/`FutureProvider.autoDispose` over `StateProvider`.
+- Keep ID route params as plain providers and derive async entity providers from them.
+- If details and edit screens are in one strict route subtree, use one shared ID provider (for example `selected...IdProvider`) instead of duplicating selected/editing IDs.
+- Controllers should return fetched models from `get/load` methods; avoid storing fetched models in mutable `StateProvider`.
+- After mutations (edit/create/delete/upload), refresh state by `ref.invalidate(...)` on relevant async providers.
+- Views should read async providers (`ref.watch(async...Provider)`) and render loading/error/data states via `AsyncProviderWidget`.
+- Keep provider naming consistent: `async<Entity>Provider` / `asyncEditing<Entity>Provider`.
+- Use `AsyncNotifierProvider` only when the provider must expose write methods that mutate the same async state. Keep plain reads on `FutureProvider`.

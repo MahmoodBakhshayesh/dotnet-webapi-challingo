@@ -1,0 +1,24 @@
+---
+description: Entity copyWith nullable wrapper convention
+alwaysApply: true
+---
+
+# Entity copyWith Nullable Convention
+
+- In entity `copyWith`, nullable fields must support explicit null assignment.
+- Do not use `String? field`/`int? field` for nullable properties when `null` should be assignable as a new value.
+- Use wrapper pattern with `Nullable<T>` from `core/helpers/nullable.dart`:
+  - parameter: `Nullable<T?>? field`
+  - assignment: `field != null ? field.value : this.field`
+  - example: `Nullable<String?>? bio`
+
+# Why
+
+- Plain nullable `copyWith` parameters cannot distinguish:
+  - "keep existing value"
+  - "set this field to null"
+
+# Scope
+
+- Apply this to domain entities and DTO-like model classes used in feature layers.
+- Keep non-nullable fields on regular typed optional params (`String?`, `int?`, etc.).
