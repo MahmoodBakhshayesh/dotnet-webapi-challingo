@@ -130,6 +130,17 @@ public class NumberMergeTests
     }
 
     [Fact]
+    public void Board_matches_the_app_board_move_for_move()
+    {
+        // Same seed and moves as the Flutter app's MergeBoard (values printed from the Dart implementation).
+        var board = new MergeBoard(4, new Mulberry32(123456789));
+        Assert.Equal([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 0], board.Cells);
+        foreach (var m in "DLDLRUDL")
+            board.Move(m);
+        Assert.Equal([0, 0, 2, 0, 2, 0, 0, 0, 2, 0, 0, 0, 4, 8, 0, 0], board.Cells);
+    }
+
+    [Fact]
     public void Replays_moves_and_reaches_target_with_a_simple_strategy()
     {
         var puzzle = _game.Generate(3, 1); // target 128

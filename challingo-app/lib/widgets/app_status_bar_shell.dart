@@ -2,7 +2,8 @@ import 'package:challingo/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// Status bar styling + safe area + scaffold background behind the app tree.
+/// Status bar styling + scaffold background behind the app tree. Screens add their own SafeArea so
+/// full-bleed backgrounds (the violet welcome screen) reach the screen edges.
 class AppStatusBarShell extends StatelessWidget {
   final Widget child;
 
@@ -11,18 +12,16 @@ class AppStatusBarShell extends StatelessWidget {
   static const SystemUiOverlayStyle _overlayStyle = SystemUiOverlayStyle(
     statusBarColor: AppColors.scaffoldBackgroundColor,
     statusBarIconBrightness: Brightness.dark,
-    statusBarBrightness: Brightness.dark,
+    statusBarBrightness: Brightness.light,
   );
 
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: _overlayStyle,
-      child: SafeArea(
-        child: ColoredBox(
-          color: AppColors.scaffoldBackgroundColor,
-          child: child,
-        ),
+      child: ColoredBox(
+        color: AppColors.scaffoldBackgroundColor,
+        child: child,
       ),
     );
   }

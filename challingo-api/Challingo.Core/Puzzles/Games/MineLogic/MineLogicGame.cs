@@ -50,7 +50,7 @@ public sealed class MineLogicGame : IInteractivePuzzleGame
         var board = new Board(puzzle.Width, puzzle.Height);
         var revealed = move.StateJson is null
             ? puzzle.Opening.Select(c => c.I).ToHashSet()
-            : PuzzleJson.Read<State>(move.StateJson).Revealed.ToHashSet();
+            : PuzzleJson.Read<State>(move.StateJson).Revealed.Select(c => c.I).ToHashSet();
 
         var reveal = PuzzleJson.TryRead<Move>(move.MoveJson)?.Reveal;
         if (reveal is not { } cell || cell < 0 || cell >= board.Cells)
@@ -58,22 +58,24 @@ public sealed class MineLogicGame : IInteractivePuzzleGame
         if (revealed.Contains(cell))
             return PuzzleMoveResult.Invalid("That cell is already revealed.");
 
+        var numbers = board.Numbers(mines);
+        State StateOf(IEnumerable<int> cells) => new(cells.Order().Select(i => new Cell(i, numbers[i])).ToArray());
+
         if (mines.Contains(cell))
         {
             return new PuzzleMoveResult(
-                PuzzleJson.Write(new State(revealed.Order().ToArray())),
+                PuzzleJson.Write(StateOf(revealed)),
                 PuzzleJson.Write(new { mine = true, mines = mines.Order() }),
                 PuzzleOutcome.Failed,
                 PuzzleJson.Write(new { revealed = revealed.Count, hitMine = true }));
         }
 
-        var numbers = board.Numbers(mines);
         var opened = board.Flood(cell, mines, numbers, revealed);
         revealed.UnionWith(opened);
         var solved = revealed.Count == board.Cells - mines.Count;
 
         return new PuzzleMoveResult(
-            PuzzleJson.Write(new State(revealed.Order().ToArray())),
+            PuzzleJson.Write(StateOf(revealed)),
             PuzzleJson.Write(new { mine = false, revealed = opened.Order().Select(i => new Cell(i, numbers[i])) }),
             solved ? PuzzleOutcome.Solved : null,
             solved ? PuzzleJson.Write(new { revealed = revealed.Count, hitMine = false }) : null);
@@ -86,7 +88,8 @@ public sealed class MineLogicGame : IInteractivePuzzleGame
     private sealed record Cell(int I, int N);
     private sealed record Secret(int[] Mines);
     private sealed record Move(int? Reveal);
-    private sealed record State(int[] Revealed);
+    /// <summary>Revealed cells with their numbers, so a resumed game can redraw the board.</summary>
+    private sealed record State(Cell[] Revealed);
 }
 
 internal sealed class Board(int width, int height)

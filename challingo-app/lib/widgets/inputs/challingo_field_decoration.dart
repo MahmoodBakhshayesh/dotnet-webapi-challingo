@@ -95,11 +95,11 @@ class ChallingoFieldDecoration {
           const TextStyle(
             fontSize: 14,
             color: AppColors.textColor,
-            fontFamily: 'Kookfa',
+            fontFamily: 'Nunito',
           ),
       placeholderStyle: const TextStyle(
         color: Color(0xffC4C4C4),
-        fontFamily: 'Kookfa',
+        fontFamily: 'Nunito',
       ),
       prefix: prefix,
       prefixIcon: prefixIcon,

@@ -104,12 +104,12 @@ class ApiService {
       logLevel: logLevel,
       retryPolicy: RetryPolicy.none,
       messageExtractor: (json) => json['message']?.toString() ?? json['error_description']?.toString(),
+      // API envelope (AppResponse): {status, message, body}; status is the HTTP code, negative on errors.
       successCheck: (req, res) {
-        final m = res.data is Map ? (res.data as Map) : const {};
         final httpOk = (res.statusCode != null && res.statusCode! >= 200 && res.statusCode! < 300);
-        final businessOk =
-            ((m['status'] ?? m['success']) == true) || (m['code'] == 0) || (m['Message'] == 'Done');
-        return httpOk && (m.isEmpty || businessOk);
+        final m = res.data is Map ? (res.data as Map) : const {};
+        final status = m['status'];
+        return httpOk && (status is! num || status > 0);
       },
       additionalHeaders: {
         'X-App-Version': '',
@@ -117,10 +117,9 @@ class ApiService {
       failedCheck: (req, res) {
         final httpOk = (res.statusCode != null && res.statusCode! >= 200 && res.statusCode! < 300);
         if (!httpOk) return true;
-        if ((res.data is Map) && (res.data as Map)['Message'] != 'Done') return true;
-
         final m = res.data is Map ? (res.data as Map) : const {};
-        return m['success'] == false;
+        final status = m['status'];
+        return status is num && status < 0;
       },
       tokenExpireCheck: (req, res) {
         final m = res.data is Map ? (res.data as Map) : const {};
@@ -392,7 +391,6 @@ class ApiService {
     if(AppData.instance.token!=null){
       headers.addAll({'Authorization':'Bearer ${AppData.instance.token}'});
     }
-    appLog.w(jsonEncode(headers));
     final req = NetworkRequest(method, pathOrUrl, query, headers, body, enableLogs);
     onStart?.call(req);
     final sw = Stopwatch()..start();

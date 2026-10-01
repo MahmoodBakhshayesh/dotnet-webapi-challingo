@@ -53,6 +53,7 @@ dependencies:
   unified_fields: ^1.0.1+3
   lottie: ^3.3.1
   shimmer: ^3.0.0
+  flutter_timezone: ^5.1.0
 
 dev_dependencies:
   flutter_test:
@@ -70,17 +71,21 @@ flutter:
     - assets/sounds/
     - assets/fonts/
   fonts:
-    - family: Kookfa
+    - family: Fredoka
       fonts:
-        - asset: assets/fonts/kookfa/KookFaNum-Regular.ttf
-        - asset: assets/fonts/kookfa/KookFaNum-ExtraLight.ttf
-          weight: 100
-        - asset: assets/fonts/kookfa/KookFaNum-Light.ttf
-          weight: 200
-        - asset: assets/fonts/kookfa/KookFaNum-Medium.ttf
-          weight: 400
-        - asset: assets/fonts/kookfa/KookFaNum-Bold.ttf
+        - asset: assets/fonts/fredoka/Fredoka-500.ttf
+          weight: 500
+        - asset: assets/fonts/fredoka/Fredoka-600.ttf
+          weight: 600
+        - asset: assets/fonts/fredoka/Fredoka-700.ttf
           weight: 700
-        - asset: assets/fonts/kookfa/KookFaNum-ExtraBold.ttf
+    - family: Nunito
+      fonts:
+        - asset: assets/fonts/nunito/Nunito-400.ttf
+          weight: 400
+        - asset: assets/fonts/nunito/Nunito-600.ttf
+          weight: 600
+        - asset: assets/fonts/nunito/Nunito-700.ttf
+          weight: 700
+        - asset: assets/fonts/nunito/Nunito-800.ttf
           weight: 800
-

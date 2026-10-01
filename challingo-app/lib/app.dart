@@ -5,6 +5,7 @@ import 'package:toastification/toastification.dart';
 import 'core/constants/const.dart';
 import 'core/helpers/app_scroll_behavior.dart';
 import 'core/navigation/router_provider.dart';
+import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
 import 'l10n/app_localizations.dart';
 import 'widgets/app_status_bar_shell.dart';
@@ -38,7 +39,7 @@ class App extends ConsumerWidget {
                   
                   builder: (context, child) {
                     return Container(
-                      color: const Color(0xffC7DCFF),
+                      color: AppColors.cloud,
                       alignment: Alignment.center,
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 600),

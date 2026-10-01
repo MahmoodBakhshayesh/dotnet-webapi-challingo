@@ -179,7 +179,7 @@ class _AppTextFormFieldState extends State<AppTextFormField> {
         borderSide: widget.borderSide,
         labelStyle: widget.labelStyle,
         fieldStyle: widget.style ??
-            TextStyle(fontSize: widget.fontSize, fontFamily: 'Kookfa'),
+            TextStyle(fontSize: widget.fontSize, fontFamily: 'Nunito'),
         prefix: widget.prefix,
         prefixIcon: widget.prefixIcon,
         suffixIcon: widget.suffixIcon ?? widget.suffix,
