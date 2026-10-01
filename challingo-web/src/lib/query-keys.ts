@@ -4,4 +4,7 @@ export const queryKeys = {
   profile: ["users", "me"] as const,
   users: ["users"] as const,
   roles: ["roles"] as const,
+  content: (gameKey: string, status?: number) => ["content", gameKey, status ?? "all"] as const,
+  contentAll: ["content"] as const,
+  games: ["games"] as const,
 };

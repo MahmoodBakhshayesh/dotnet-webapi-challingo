@@ -17,7 +17,7 @@ export default function AdminHomePage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">{t("title")}</h1>
           <p className="text-muted-foreground mt-2 max-w-2xl text-sm">
-            Manage users, roles (with CRUD permissions), and organizations.
+            Manage users and roles, review puzzle content (Word Guess answers, crosswords), and preview any game.
           </p>
         </div>
       </div>
@@ -27,6 +27,15 @@ export default function AdminHomePage() {
         </Link>
         <Link href="/admin/roles" className={cn(buttonVariants({ variant: "outline" }))}>
           {t("manageRoles")}
+        </Link>
+        <Link href="/admin/content/word-guess" className={cn(buttonVariants({ variant: "outline" }))}>
+          Word Guess answers
+        </Link>
+        <Link href="/admin/content/crosswords" className={cn(buttonVariants({ variant: "outline" }))}>
+          Crosswords
+        </Link>
+        <Link href="/admin/puzzles" className={cn(buttonVariants({ variant: "outline" }))}>
+          Puzzle preview
         </Link>
         {organizationsEnabled() ? (
           <Link

@@ -26,7 +26,7 @@
     "signInLink": "ورود"
   },
   "Nav": {
-    "brand": "وب‌اپ",
+    "brand": "Challingo Admin",
     "dashboard": "داشبورد",
     "organizations": "سازمان‌ها",
     "users": "کاربران",
@@ -37,7 +37,11 @@
     "userPanel": "حساب من",
     "profile": "پروفایل",
     "logout": "خروج",
-    "openMenu": "باز کردن منو"
+    "openMenu": "باز کردن منو",
+    "puzzlesSection": "Puzzles",
+    "wordGuessAnswers": "Word Guess answers",
+    "crosswords": "Crosswords",
+    "puzzlePreview": "Puzzle preview"
   },
   "Landing": {
     "brand": "وب‌اپ",

@@ -26,7 +26,7 @@
     "signInLink": "Sign in"
   },
   "Nav": {
-    "brand": "Web App",
+    "brand": "Challingo Admin",
     "dashboard": "Dashboard",
     "organizations": "Organizations",
     "users": "Users",
@@ -37,7 +37,11 @@
     "userPanel": "My account",
     "profile": "Profile",
     "logout": "Log out",
-    "openMenu": "Open menu"
+    "openMenu": "Open menu",
+    "puzzlesSection": "Puzzles",
+    "wordGuessAnswers": "Word Guess answers",
+    "crosswords": "Crosswords",
+    "puzzlePreview": "Puzzle preview"
   },
   "Landing": {
     "brand": "Web App",
@@ -123,7 +127,8 @@
     "googleNotConfigured": "Set NEXT_PUBLIC_GOOGLE_CLIENT_ID in .env.local and restart the dev server (rebuild for production).",
     "googleLoadFailed": "Could not load Google Sign-In. Check your network connection and try again.",
     "usernamePlaceholder": "admin or your username",
-    "emailPlaceholder": "you@company.com"
+    "emailPlaceholder": "you@company.com",
+    "welcomeBack": "Welcome back"
   },
   "Home": {
     "redirecting": "Redirecting…"

@@ -13,6 +13,9 @@ import {
   Shield,
   ClipboardList,
   ShieldCheck,
+  SpellCheck,
+  Grid3x3,
+  Eye,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -134,6 +137,25 @@ export function MainShell({ children }: { children: React.ReactNode }) {
         href: "/admin/roles",
         label: t("roles"),
         icon: ShieldCheck,
+      });
+      blocks.push({ type: "label", label: t("puzzlesSection") });
+      blocks.push({
+        type: "link",
+        href: "/admin/content/word-guess",
+        label: t("wordGuessAnswers"),
+        icon: SpellCheck,
+      });
+      blocks.push({
+        type: "link",
+        href: "/admin/content/crosswords",
+        label: t("crosswords"),
+        icon: Grid3x3,
+      });
+      blocks.push({
+        type: "link",
+        href: "/admin/puzzles",
+        label: t("puzzlePreview"),
+        icon: Eye,
       });
       if (organizationsEnabled()) {
         blocks.push({
