@@ -430,9 +430,10 @@ class ApiService {
         }else if(e.response?.statusCode == 503){
           return _handleFailedRequest(req, e, st, sw.elapsed, shouldThrow,data: {'Message':'(503)\nCould not connect to server\nServer Error'});
         }
-        return _handleFailedRequest(req, e, st, sw.elapsed, shouldThrow,data: e.response?.data);
+        // Error bodies are not always JSON objects (a 401 has an empty body).
+        return _handleFailedRequest(req, e, st, sw.elapsed, shouldThrow, data: _asMap(e.response?.data));
       } on NetworkException catch (e) {
-        return _handleFailedRequest(req, e, null, sw.elapsed, shouldThrow, data: e.data);
+        return _handleFailedRequest(req, e, null, sw.elapsed, shouldThrow, data: _asMap(e.data));
       } catch (e, st) {
         return _handleFailedRequest(req, e, st, sw.elapsed, shouldThrow);
       }
@@ -445,6 +446,8 @@ class ApiService {
   // ========================================================================
   // PRIVATE HELPERS
   // ========================================================================
+
+  static Map<String, dynamic>? _asMap(Object? value) => value is Map ? value.cast<String, dynamic>() : null;
 
   /// Handles responses that were successfully received from the server.
   NetworkResponse _handleSuccessfulResponse(
@@ -498,7 +501,8 @@ class ApiService {
     Map<String, dynamic>? data,
   }) {
     final NetworkResponse res;
-    switch (e.runtimeType) {
+    // Match on the error itself (matching on runtimeType never hits the DioException case).
+    switch (e) {
       case DioException e:
         res = _wrapError(req, e, duration);
         break;

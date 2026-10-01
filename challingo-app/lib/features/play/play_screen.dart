@@ -6,10 +6,13 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import '../../core/api/api_models.dart';
 import '../../core/api/challingo_api.dart';
+import '../../core/api/competition_models.dart';
 import '../../core/session/session_controller.dart';
 import '../../core/theme/app_colors.dart';
 import '../../widgets/challingo/challingo_widgets.dart';
 import '../../widgets/challingo/tilo.dart';
+import '../competition/competition_providers.dart';
+import '../competition/competition_widgets.dart';
 import 'board_context.dart';
 import 'boards/boards.dart';
 import 'game_catalog.dart';
@@ -18,10 +21,14 @@ import 'results_screen.dart';
 /// Plays one attempt: creates a practice challenge for [game] (or opens [challengeId]), starts/resumes it,
 /// hosts the game's board, and swaps to the results when the attempt ends.
 class PlayScreen extends ConsumerStatefulWidget {
-  const PlayScreen({super.key, required this.game, this.challengeId});
+  const PlayScreen({super.key, required this.game, this.challengeId, this.kind = ChallengeKind.practice, this.sequence = 0});
 
   final GameKind game;
   final String? challengeId;
+
+  /// Daily, ranked or Grand when [challengeId] is a shared challenge.
+  final ChallengeKind kind;
+  final int sequence;
 
   @override
   ConsumerState<PlayScreen> createState() => _PlayScreenState();
@@ -80,7 +87,7 @@ class _PlayScreenState extends ConsumerState<PlayScreen> {
   Future<MoveResult> _move(Map<String, dynamic> move) async {
     final result = await _api.move(_attempt!, move);
     if (result.status != AttemptStatus.inProgress) {
-      _finish(PlayOutcome(game: widget.game, status: result.status, elapsedMs: result.elapsedMs, result: result.response));
+      _finish(_outcomeFor(result.status, result.elapsedMs, result.response, result.standing));
     }
     return result;
   }
@@ -90,12 +97,25 @@ class _PlayScreenState extends ConsumerState<PlayScreen> {
     if (result.status == AttemptStatus.inProgress) {
       _notify(result.message ?? 'Not solved yet.');
     } else {
-      _finish(PlayOutcome(game: widget.game, status: result.status, elapsedMs: result.elapsedMs, result: result.result));
+      _finish(_outcomeFor(result.status, result.elapsedMs, result.result, result.standing));
     }
     return result;
   }
 
+  PlayOutcome _outcomeFor(AttemptStatus status, int? elapsedMs, Map<String, dynamic>? result, Standing? standing) => PlayOutcome(
+    game: widget.game,
+    status: status,
+    elapsedMs: elapsedMs,
+    result: result,
+    standing: standing,
+    challengeId: widget.challengeId,
+    kind: widget.kind,
+    sequence: widget.sequence,
+  );
+
   void _finish(PlayOutcome outcome) {
+    // Shared challenge: the home cards and boards change.
+    if (widget.kind != ChallengeKind.practice) unawaited(ref.read(todayProvider.notifier).refresh());
     _ticker?.cancel();
     // Let the board show its final move for a moment before the results.
     Future.delayed(const Duration(milliseconds: 700), () {
@@ -115,7 +135,11 @@ class _PlayScreenState extends ConsumerState<PlayScreen> {
   @override
   Widget build(BuildContext context) {
     if (_outcome != null) {
-      return ResultsScreen(outcome: _outcome!, onPlayAgain: _playAgain, onHome: () => context.go('/home'));
+      return ResultsScreen(
+        outcome: _outcome!,
+        onPlayAgain: widget.kind == ChallengeKind.practice ? _playAgain : null,
+        onHome: () => context.go('/home'),
+      );
     }
     final attempt = _attempt;
     return Scaffold(
@@ -125,7 +149,13 @@ class _PlayScreenState extends ConsumerState<PlayScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _TopBar(game: widget.game, attempt: attempt, serverNow: _serverNow, onBack: () => context.go('/home')),
+              _TopBar(
+                game: widget.game,
+                label: challengeLabel(widget.kind, widget.sequence),
+                attempt: attempt,
+                serverNow: _serverNow,
+                onBack: () => context.go('/home'),
+              ),
               const SizedBox(height: 16),
               Expanded(
                 child: _error != null
@@ -146,9 +176,10 @@ class _PlayScreenState extends ConsumerState<PlayScreen> {
 }
 
 class _TopBar extends StatelessWidget {
-  const _TopBar({required this.game, required this.attempt, required this.serverNow, required this.onBack});
+  const _TopBar({required this.game, required this.label, required this.attempt, required this.serverNow, required this.onBack});
 
   final GameKind game;
+  final String label;
   final AttemptStart? attempt;
   final DateTime Function() serverNow;
   final VoidCallback onBack;
@@ -169,7 +200,7 @@ class _TopBar extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(game.title, style: Theme.of(context).textTheme.titleLarge),
-              Text('Practice · not ranked', style: Theme.of(context).textTheme.bodySmall),
+              Text(label, style: Theme.of(context).textTheme.bodySmall),
             ],
           ),
         ),

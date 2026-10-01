@@ -34,6 +34,9 @@ export default function AdminHomePage() {
         <Link href="/admin/content/crosswords" className={cn(buttonVariants({ variant: "outline" }))}>
           Crosswords
         </Link>
+        <Link href="/admin/schedule" className={cn(buttonVariants({ variant: "outline" }))}>
+          Schedule
+        </Link>
         <Link href="/admin/puzzles" className={cn(buttonVariants({ variant: "outline" }))}>
           Puzzle preview
         </Link>

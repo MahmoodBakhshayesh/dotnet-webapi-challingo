@@ -1,3 +1,4 @@
+import 'core/services/realtime_service.dart';
 import 'package:fast_cached_network_image/fast_cached_network_image.dart';
 import 'package:get_it/get_it.dart';
 import 'core/constants/keys.dart';
@@ -70,4 +71,6 @@ Future<void> registerGlobalRepositories() async {
     ),
   );
   await AppData.instance.init();
+  // Live boards and round announcements: connected while signed in.
+  RealtimeService.instance.bindToSession();
 }

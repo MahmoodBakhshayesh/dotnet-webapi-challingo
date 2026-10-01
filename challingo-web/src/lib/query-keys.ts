@@ -7,4 +7,6 @@ export const queryKeys = {
   content: (gameKey: string, status?: number) => ["content", gameKey, status ?? "all"] as const,
   contentAll: ["content"] as const,
   games: ["games"] as const,
+  schedule: (date: string) => ["schedule", date] as const,
+  scheduleAll: ["schedule"] as const,
 };

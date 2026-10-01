@@ -9,6 +9,9 @@ public sealed class MeResponse
     public required string TimeZoneId { get; init; }
     public string? CountryCode { get; init; }
 
+    /// <summary>English name of <see cref="CountryCode"/> ("Germany").</summary>
+    public string? CountryName { get; init; }
+
     /// <summary>The player's current local date (server-computed; the app must not use the device clock).</summary>
     public DateOnly LocalDate { get; init; }
 

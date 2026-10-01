@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import '../../di.dart';
 import '../helpers/api_service.dart';
 import 'api_models.dart';
+import 'competition_models.dart';
 
 /// A failed API call, with the server's message when it sent one.
 class ApiFailure implements Exception {
@@ -85,6 +86,39 @@ class ChallingoApi {
         }),
       );
 
+  // --- Competition --------------------------------------------------------
+
+  Future<Today> today() async => Today.fromJson(await _map('GET', 'competition/today'));
+
+  /// [key]: challenge id (round), UTC date (day), ISO week (week / grand); null = current.
+  Future<Board> board(BoardPeriod period, {String? key, BoardScope scope = BoardScope.global, String? groupId, int limit = 50}) async {
+    final query = {
+      'period': period.index,
+      'key': ?key,
+      'scope': scope.index,
+      'groupId': ?groupId,
+      'limit': limit,
+    }.entries.map((e) => '${e.key}=${Uri.encodeQueryComponent('${e.value}')}').join('&');
+    return Board.fromJson(await _map('GET', 'competition/boards?$query'));
+  }
+
+  // --- Groups -------------------------------------------------------------
+
+  Future<List<GroupInfo>> groups() async =>
+      [for (final g in (await _send('GET', 'groups')) as List) GroupInfo.fromJson((g as Map).cast<String, dynamic>())];
+
+  Future<GroupInfo> createGroup(String name) async => GroupInfo.fromJson(await _map('POST', 'groups', body: {'name': name}));
+
+  Future<GroupInvite> previewInvite(String code) async =>
+      GroupInvite.fromJson(await _map('GET', 'groups/invite/${Uri.encodeComponent(code)}'));
+
+  /// [code] may be the bare code or the whole invite link.
+  Future<GroupInfo> joinGroup(String code) async => GroupInfo.fromJson(await _map('POST', 'groups/join', body: {'code': code}));
+
+  Future<GroupDetail> group(String groupId) async => GroupDetail.fromJson(await _map('GET', 'groups/$groupId'));
+
+  Future<void> leaveGroup(String groupId) => _send('DELETE', 'groups/$groupId/membership');
+
   // --- Transport ----------------------------------------------------------
 
   AuthTokens _tokens(Object? body) => AuthTokens.fromJson(((body as Map)['token'] as Map).cast<String, dynamic>());
@@ -97,6 +131,7 @@ class ChallingoApi {
     final res = switch (method) {
       'GET' => await _api.get(path, throwOnFailure: false),
       'PUT' => await _api.put(path, body: body, throwOnFailure: false),
+      'DELETE' => await _api.delete(path, throwOnFailure: false),
       _ => await _api.post(path, body: body, throwOnFailure: false),
     };
 

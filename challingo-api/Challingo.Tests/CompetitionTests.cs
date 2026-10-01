@@ -255,3 +255,13 @@ internal sealed class FakeCompetitionRepository : ICompetitionRepository
     public Task<long> GetStarBalanceAsync(Guid userId, CancellationToken ct = default) => throw new NotSupportedException();
     public Task<Dictionary<Guid, (string DisplayName, string? CountryCode)>> GetPlayersAsync(IReadOnlyCollection<Guid> userIds, CancellationToken ct = default) => throw new NotSupportedException();
 }
+
+public class CountryNameTests
+{
+    [Theory]
+    [InlineData("DE", "Germany")]
+    [InlineData("JP", "Japan")]
+    [InlineData("ZZ", "ZZ")]
+    public void Country_names_for_board_titles(string code, string expected) =>
+        Assert.Equal(expected, CompetitionService.CountryName(code));
+}

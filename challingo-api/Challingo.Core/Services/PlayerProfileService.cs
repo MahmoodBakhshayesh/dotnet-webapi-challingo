@@ -150,6 +150,7 @@ public sealed class PlayerProfileService(
             Email = user.Email,
             TimeZoneId = profile.TimeZoneId,
             CountryCode = profile.CountryCode,
+            CountryName = profile.CountryCode is { } code ? CompetitionService.CountryName(code) : null,
             LocalDate = PlayerTimeZones.LocalDate(PlayerProfileRules.EffectiveTimeZone(profile, now), now),
             NextTimeZoneChangeAtUtc = next > now ? next : null,
         };

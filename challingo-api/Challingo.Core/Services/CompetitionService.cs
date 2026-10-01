@@ -147,6 +147,19 @@ public sealed class CompetitionService(
         });
     }
 
+    /// <summary>"Germany" for DE; the code itself when the platform has no name for it.</summary>
+    internal static string CountryName(string code)
+    {
+        try
+        {
+            return new System.Globalization.RegionInfo(code).EnglishName;
+        }
+        catch (ArgumentException)
+        {
+            return code;
+        }
+    }
+
     internal static ChallengeState StateAt(Challenge c, DateTime now) =>
         now < c.OpensAtUtc ? ChallengeState.Upcoming : now < c.ClosesAtUtc ? ChallengeState.Open : ChallengeState.Closed;
 
@@ -228,7 +241,7 @@ public sealed class CompetitionService(
                 }
                 if (string.IsNullOrEmpty(country) || country.Length != 2)
                     return AppResponse.RequestError("No country board for this player's time zone.");
-                scopeName = country;
+                scopeName = CountryName(country);
                 break;
             case BoardScope.Group:
                 if (query.GroupId is not { } groupId || await groups.GetAsync(groupId) is not { } group)

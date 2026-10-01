@@ -15,6 +15,7 @@ import {
   ShieldCheck,
   SpellCheck,
   Grid3x3,
+  CalendarClock,
   Eye,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -150,6 +151,12 @@ export function MainShell({ children }: { children: React.ReactNode }) {
         href: "/admin/content/crosswords",
         label: t("crosswords"),
         icon: Grid3x3,
+      });
+      blocks.push({
+        type: "link",
+        href: "/admin/schedule",
+        label: t("schedule"),
+        icon: CalendarClock,
       });
       blocks.push({
         type: "link",
