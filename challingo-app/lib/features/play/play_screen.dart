@@ -115,7 +115,7 @@ class _PlayScreenState extends ConsumerState<PlayScreen> {
 
   void _finish(PlayOutcome outcome) {
     // Shared challenge: the home cards and boards change.
-    if (widget.kind != ChallengeKind.practice) unawaited(ref.read(todayProvider.notifier).refresh());
+    if (widget.kind != ChallengeKind.practice) unawaited(ref.read(lobbyProvider.notifier).refresh());
     _ticker?.cancel();
     // Let the board show its final move for a moment before the results.
     Future.delayed(const Duration(milliseconds: 700), () {

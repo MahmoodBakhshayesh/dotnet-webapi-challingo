@@ -10,6 +10,7 @@ import '../../core/theme/app_theme.dart';
 import '../../widgets/challingo/challingo_widgets.dart';
 import '../../widgets/challingo/tilo.dart';
 import '../boards/board_widgets.dart';
+import '../boards/boards_screen.dart';
 import '../competition/competition_providers.dart';
 
 /// Groups tab: your groups, start one, join with a code or link.
@@ -111,31 +112,52 @@ Future<void> _guard(BuildContext context, Future<void> Function() action) async 
   }
 }
 
-Future<String?> _ask(BuildContext context, {required String title, required String hint, required String action}) {
-  final controller = TextEditingController();
-  return showDialog<String>(
-    context: context,
-    builder: (context) => AlertDialog(
-      backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      title: Text(title),
-      content: TextField(
-        controller: controller,
-        autofocus: true,
-        maxLength: 60,
-        decoration: InputDecoration(hintText: hint, counterText: ''),
-        onSubmitted: (v) => Navigator.pop(context, v.trim().isEmpty ? null : v.trim()),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        FilledButton(
-          style: FilledButton.styleFrom(backgroundColor: AppColors.violet),
-          onPressed: () => Navigator.pop(context, controller.text.trim().isEmpty ? null : controller.text.trim()),
-          child: Text(action),
-        ),
-      ],
+Future<String?> _ask(BuildContext context, {required String title, required String hint, required String action}) =>
+    showDialog<String>(context: context, builder: (_) => _AskDialog(title: title, hint: hint, action: action));
+
+/// Owns its text controller, so it lives exactly as long as the dialog (including its closing animation).
+class _AskDialog extends StatefulWidget {
+  const _AskDialog({required this.title, required this.hint, required this.action});
+
+  final String title;
+  final String hint;
+  final String action;
+
+  @override
+  State<_AskDialog> createState() => _AskDialogState();
+}
+
+class _AskDialogState extends State<_AskDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final value = _controller.text.trim();
+    Navigator.pop(context, value.isEmpty ? null : value);
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    backgroundColor: Colors.white,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+    title: Text(widget.title),
+    content: TextField(
+      controller: _controller,
+      autofocus: true,
+      maxLength: 60,
+      decoration: InputDecoration(hintText: widget.hint, counterText: ''),
+      onSubmitted: (_) => _submit(),
     ),
-  ).whenComplete(controller.dispose);
+    actions: [
+      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+      FilledButton(style: FilledButton.styleFrom(backgroundColor: AppColors.violet), onPressed: _submit, child: Text(widget.action)),
+    ],
+  );
 }
 
 /// A group: invite link, this week's group board, members, leave.
@@ -147,7 +169,6 @@ class GroupDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final detail = ref.watch(groupDetailProvider(groupId));
-    final weekKey = ref.watch(todayProvider).value?.weekKey;
     return Scaffold(
       body: SafeArea(
         child: switch (detail) {
@@ -181,14 +202,9 @@ class GroupDetailScreen extends ConsumerWidget {
                 ]),
               ),
               const SizedBox(height: 20),
-              Text('THIS WEEK', style: Theme.of(context).textTheme.labelSmall),
+              Text('GROUP BOARDS', style: Theme.of(context).textTheme.labelSmall),
               const SizedBox(height: 10),
-              if (weekKey != null)
-                BoardList(
-                  shrinkWrap: true,
-                  request: (period: BoardPeriod.week, key: weekKey, scope: BoardScope.group, groupId: groupId),
-                  emptyText: 'Nobody in the group has points this week yet.',
-                ),
+              BoardsPanel(fixedGroupId: groupId, includeGrand: true, initialPeriod: BoardPeriod.week, shrinkWrap: true),
               const SizedBox(height: 16),
               Text('MEMBERS · ${d.members.length}', style: Theme.of(context).textTheme.labelSmall),
               const SizedBox(height: 10),

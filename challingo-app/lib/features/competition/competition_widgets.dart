@@ -35,12 +35,12 @@ String utcTime(DateTime t) => '${t.hour.toString().padLeft(2, '0')}:${t.minute.t
 
 String gameTitle(String? key) => key == null ? 'Mystery game' : (GameKind.fromKey(key)?.title ?? key);
 
-/// Opens the play screen for a shared challenge.
-/// [replace] swaps out the current screen (the next Grand game from a results screen).
-void playChallenge(BuildContext context, ChallengeCard card, {bool replace = false}) {
-  final game = card.gameKey;
-  if (game == null) return;
-  final location = '/play/$game?challenge=${card.challengeId}&kind=${card.kind.index}&seq=${card.sequence}';
+/// "every 30 min", "every 2 h".
+String cadenceLabel(int minutes) => minutes % 60 == 0 ? 'every ${minutes ~/ 60} h' : 'every $minutes min';
+
+/// Opens the play screen for a shared challenge. [replace] swaps out the current screen (the next Grand game).
+void playChallenge(BuildContext context, RunCard card, {bool replace = false}) {
+  final location = '/play/${card.gameKey}?challenge=${card.challengeId}&kind=${card.kind.index}&seq=${card.sequence}';
   replace ? context.pushReplacement(location) : context.push(location);
 }
 
@@ -48,6 +48,6 @@ void playChallenge(BuildContext context, ChallengeCard card, {bool replace = fal
 String challengeLabel(ChallengeKind kind, int sequence) => switch (kind) {
   ChallengeKind.practice => 'Practice · not ranked',
   ChallengeKind.daily => 'Daily puzzle',
-  ChallengeKind.ranked => 'Ranked round $sequence of 6',
-  ChallengeKind.grand => 'Grand Challenge · game $sequence of 6',
+  ChallengeKind.ranked => 'Ranked run',
+  ChallengeKind.grand => 'Grand Challenge · game $sequence',
 };

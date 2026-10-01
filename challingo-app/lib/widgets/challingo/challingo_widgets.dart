@@ -150,7 +150,8 @@ class StarIcon extends StatelessWidget {
   final Color fill;
 
   @override
-  Widget build(BuildContext context) => Icon(Icons.star_rounded, size: size + 2, color: fill, shadows: const [Shadow(color: AppColors.sunDeep, blurRadius: 0.5)]);
+  // No icon shadow: Impeller can paint a text shadow far from its glyph (a stray star on screen).
+  Widget build(BuildContext context) => Icon(Icons.star_rounded, size: size + 2, color: fill);
 }
 
 /// Square "back / close" button used on game and result screens.

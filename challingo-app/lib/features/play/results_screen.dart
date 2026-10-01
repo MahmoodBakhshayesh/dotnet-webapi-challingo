@@ -96,7 +96,7 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen> {
 
     // Grand Challenge: offer the next unplayed game.
     final nextGrand = outcome.kind == ChallengeKind.grand
-        ? ref.watch(todayProvider).value?.grand.where((g) => g.challengeId != outcome.challengeId && g.my?.finished != true).firstOrNull
+        ? ref.watch(lobbyProvider).value?.grand.where((g) => g.challengeId != outcome.challengeId && g.my?.finished != true).firstOrNull
         : null;
 
     return Scaffold(
@@ -171,10 +171,10 @@ class _ResultsScreenState extends ConsumerState<ResultsScreen> {
                     const SizedBox(height: 12),
                     BoardList(
                       shrinkWrap: true,
-                      request: (period: BoardPeriod.round, key: outcome.challengeId, scope: scope.scope, groupId: scope.groupId),
+                      request: (period: BoardPeriod.round, gameKey: null, key: outcome.challengeId, scope: scope.scope, groupId: scope.groupId),
                     ),
                   ] else
-                    Text('Ranked rounds put your time on the global, country and group boards.', textAlign: TextAlign.center, style: text.bodySmall),
+                    Text('Ranked runs put your time on the global, country and group boards.', textAlign: TextAlign.center, style: text.bodySmall),
                 ],
               ),
             ),

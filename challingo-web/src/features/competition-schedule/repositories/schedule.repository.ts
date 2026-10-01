@@ -7,7 +7,9 @@ import { apiJson } from "@/lib/api-client";
 /** Matches the API's ChallengeKind (serialized as a number). */
 export enum ChallengeKind {
   Practice = 0,
+  /** Retired local-date daily puzzle. */
   Daily = 1,
+  /** A ranked run (every game repeats on its own UTC timer). */
   Ranked = 2,
   Grand = 3,
 }
@@ -26,8 +28,9 @@ export type ScheduleEntryDto = {
   sequence: number;
   gameKey: string;
   difficulty: number;
-  localDate?: string | null;
   opensAtUtc: string;
+  /** Last moment to start; started attempts may finish until `closesAtUtc`. */
+  joinClosesAtUtc: string;
   closesAtUtc: string;
   state: ChallengeState;
   attempts: number;
@@ -38,8 +41,9 @@ export type CompetitionRunDto = {
   scheduled: number;
   announced: number;
   finalized: number;
-  daysClosed: number;
-  weeksClosed: number;
+  periodsClosed: number;
+  lotteryDigits: number;
+  lotterySettled: boolean;
 };
 
 export const scheduleRepository = {

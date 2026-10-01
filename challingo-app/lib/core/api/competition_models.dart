@@ -13,8 +13,11 @@ enum ChallengeKind { practice, daily, ranked, grand }
 /// Matches the API's ChallengeState.
 enum ChallengeState { upcoming, open, closed }
 
-/// Matches the API's BoardPeriod.
-enum BoardPeriod { round, day, week, grand, allTime }
+/// Matches the API's BoardPeriod (ints: append only).
+enum BoardPeriod { round, day, week, grand, allTime, month }
+
+/// Matches the API's LotteryPhase.
+enum LotteryPhase { picking, revealing, settled }
 
 /// Matches the API's BoardScope.
 enum BoardScope { global, country, group }
@@ -35,13 +38,12 @@ class Standing {
 }
 
 class MyAttempt {
-  const MyAttempt({required this.status, required this.elapsedMs, required this.points, required this.rank, required this.countsForDay});
+  const MyAttempt({required this.status, required this.elapsedMs, required this.points, required this.rank});
 
   final AttemptStatus status;
   final int? elapsedMs;
   final int? points;
   final int? rank;
-  final bool countsForDay;
 
   bool get finished => status != AttemptStatus.inProgress;
 
@@ -50,109 +52,237 @@ class MyAttempt {
     elapsedMs: (json['elapsedMs'] as num?)?.toInt(),
     points: (json['points'] as num?)?.toInt(),
     rank: (json['rank'] as num?)?.toInt(),
-    countsForDay: json['countsForDay'] as bool? ?? false,
   );
 }
 
-class ChallengeCard {
-  const ChallengeCard({
+/// One ranked run or Grand game.
+class RunCard {
+  const RunCard({
     required this.challengeId,
     required this.kind,
-    required this.sequence,
     required this.gameKey,
+    required this.sequence,
     required this.opensAtUtc,
+    required this.joinClosesAtUtc,
     required this.closesAtUtc,
-    required this.state,
     required this.finalized,
     required this.my,
   });
 
   final String challengeId;
   final ChallengeKind kind;
+  final String gameKey;
   final int sequence;
-
-  /// Null while a ranked round is more than one round away.
-  final String? gameKey;
   final DateTime opensAtUtc;
+
+  /// Last moment to start.
+  final DateTime joinClosesAtUtc;
+
+  /// Started attempts may finish until this.
   final DateTime closesAtUtc;
-  final ChallengeState state;
   final bool finalized;
   final MyAttempt? my;
 
-  /// Open or upcoming/closed, judged against server time (the state from the API ages).
+  /// Judged against server time (the state from the API ages).
   ChallengeState stateAt(DateTime serverNow) => serverNow.isBefore(opensAtUtc)
       ? ChallengeState.upcoming
-      : serverNow.isBefore(closesAtUtc)
+      : serverNow.isBefore(joinClosesAtUtc)
       ? ChallengeState.open
       : ChallengeState.closed;
 
-  factory ChallengeCard.fromJson(Map<String, dynamic> json) => ChallengeCard(
+  factory RunCard.fromJson(Map<String, dynamic> json) => RunCard(
     challengeId: json['challengeId'] as String,
     kind: ChallengeKind.values[_int(json['kind'])],
+    gameKey: json['gameKey'] as String,
     sequence: _int(json['sequence']),
-    gameKey: json['gameKey'] as String?,
     opensAtUtc: _date(json['opensAtUtc']),
+    joinClosesAtUtc: _date(json['joinClosesAtUtc']),
     closesAtUtc: _date(json['closesAtUtc']),
-    state: ChallengeState.values[_int(json['state'])],
     finalized: json['finalized'] as bool? ?? false,
     my: json['my'] == null ? null : MyAttempt.fromJson(_map(json['my'])),
   );
 }
 
-class Today {
-  const Today({
+/// A game in the lobby.
+class GameLobby {
+  const GameLobby({
+    required this.gameKey,
+    required this.everyMinutes,
+    required this.current,
+    required this.next,
+    required this.dayPoints,
+    required this.dayRank,
+    required this.runsToday,
+  });
+
+  final String gameKey;
+  final int everyMinutes;
+
+  /// The run you can join now.
+  final RunCard? current;
+  final RunCard? next;
+
+  /// Your points on this game's day board (closed runs) and rank there.
+  final double? dayPoints;
+  final int? dayRank;
+  final int runsToday;
+
+  factory GameLobby.fromJson(Map<String, dynamic> json) => GameLobby(
+    gameKey: json['gameKey'] as String,
+    everyMinutes: _int(json['everyMinutes']),
+    current: json['current'] == null ? null : RunCard.fromJson(_map(json['current'])),
+    next: json['next'] == null ? null : RunCard.fromJson(_map(json['next'])),
+    dayPoints: (json['dayPoints'] as num?)?.toDouble(),
+    dayRank: (json['dayRank'] as num?)?.toInt(),
+    runsToday: _int(json['runsToday'] ?? 0),
+  );
+}
+
+class Lobby {
+  const Lobby({
     required this.serverNowUtc,
     required this.utcDate,
-    required this.localDate,
     required this.weekKey,
-    required this.isGrandDay,
-    required this.rounds,
-    required this.nextRound,
-    required this.daily,
+    required this.monthKey,
+    required this.games,
     required this.grand,
-    required this.featured,
+    required this.isGrandDay,
     required this.rankedUsed,
     required this.rankedAllowed,
     required this.stars,
+    required this.lottery,
   });
 
   final DateTime serverNowUtc;
   final String utcDate;
-  final String localDate;
   final String weekKey;
+  final String monthKey;
+  final List<GameLobby> games;
+
+  /// This week's Grand Challenge (Sunday).
+  final List<RunCard> grand;
   final bool isGrandDay;
-  final List<ChallengeCard> rounds;
-  final ChallengeCard? nextRound;
-  final ChallengeCard? daily;
-  final List<ChallengeCard> grand;
-
-  /// Mon–Sat featured games (date, game key).
-  final List<(String, String)> featured;
   final int rankedUsed;
-  final int rankedAllowed;
+
+  /// Null = unlimited (Plus).
+  final int? rankedAllowed;
   final int stars;
+  final Lottery? lottery;
 
-  bool get hasRankedEntry => rankedUsed < rankedAllowed;
+  bool get hasRankedEntry => rankedAllowed == null || rankedUsed < rankedAllowed!;
 
-  factory Today.fromJson(Map<String, dynamic> json) {
-    List<ChallengeCard> cards(Object? v) => [for (final c in (v as List? ?? const [])) ChallengeCard.fromJson(_map(c))];
+  GameLobby? game(String key) => games.where((g) => g.gameKey == key).firstOrNull;
+
+  factory Lobby.fromJson(Map<String, dynamic> json) {
     final entries = _map(json['rankedEntries']);
-    return Today(
+    return Lobby(
       serverNowUtc: _date(json['serverNowUtc']),
       utcDate: json['utcDate'] as String,
-      localDate: json['localDate'] as String,
       weekKey: json['weekKey'] as String,
+      monthKey: json['monthKey'] as String,
+      games: [for (final g in json['games'] as List) GameLobby.fromJson(_map(g))],
+      grand: [for (final g in (json['grand'] as List? ?? const [])) RunCard.fromJson(_map(g))],
       isGrandDay: json['isGrandDay'] as bool? ?? false,
-      rounds: cards(json['rounds']),
-      nextRound: json['nextRound'] == null ? null : ChallengeCard.fromJson(_map(json['nextRound'])),
-      daily: json['daily'] == null ? null : ChallengeCard.fromJson(_map(json['daily'])),
-      grand: cards(json['grand']),
-      featured: [for (final f in (json['featured'] as List? ?? const [])) ((f as Map)['date'] as String, f['gameKey'] as String)],
       rankedUsed: _int(entries['used']),
-      rankedAllowed: _int(entries['allowed']),
+      rankedAllowed: (entries['allowed'] as num?)?.toInt(),
       stars: _int(json['stars']),
+      lottery: json['lottery'] == null ? null : Lottery.fromJson(_map(json['lottery'])),
     );
   }
+}
+
+class LotteryTicket {
+  const LotteryTicket({required this.number, required this.match, required this.alive});
+
+  final String number;
+
+  /// Digits matched so far, from the first.
+  final int match;
+
+  /// Still matching every revealed digit.
+  final bool alive;
+
+  factory LotteryTicket.fromJson(Map<String, dynamic> json) =>
+      LotteryTicket(number: json['number'] as String, match: _int(json['match']), alive: json['alive'] as bool? ?? false);
+}
+
+class LotteryResult {
+  const LotteryResult({
+    required this.number,
+    required this.salt,
+    required this.winningMatch,
+    required this.winners,
+    required this.prizePerWinner,
+    required this.rolledOver,
+    required this.myPrize,
+  });
+
+  final String number;
+  final String salt;
+  final int winningMatch;
+  final int winners;
+  final int prizePerWinner;
+  final bool rolledOver;
+  final int myPrize;
+
+  factory LotteryResult.fromJson(Map<String, dynamic> json) => LotteryResult(
+    number: json['number'] as String,
+    salt: json['salt'] as String,
+    winningMatch: _int(json['winningMatch']),
+    winners: _int(json['winners']),
+    prizePerWinner: _int(json['prizePerWinner']),
+    rolledOver: json['rolledOver'] as bool? ?? false,
+    myPrize: _int(json['myPrize']),
+  );
+}
+
+class Lottery {
+  const Lottery({
+    required this.dayKey,
+    required this.phase,
+    required this.picksCloseAtUtc,
+    required this.nextRevealAtUtc,
+    required this.endsAtUtc,
+    required this.revealed,
+    required this.commitHash,
+    required this.pot,
+    required this.players,
+    required this.alive,
+    required this.my,
+    required this.result,
+  });
+
+  static const digits = 10;
+
+  final String dayKey;
+  final LotteryPhase phase;
+  final DateTime picksCloseAtUtc;
+  final DateTime? nextRevealAtUtc;
+  final DateTime endsAtUtc;
+
+  /// Digits revealed so far, in order.
+  final String revealed;
+  final String commitHash;
+  final int pot;
+  final int players;
+  final int alive;
+  final LotteryTicket? my;
+  final LotteryResult? result;
+
+  factory Lottery.fromJson(Map<String, dynamic> json) => Lottery(
+    dayKey: json['dayKey'] as String,
+    phase: LotteryPhase.values[_int(json['phase'])],
+    picksCloseAtUtc: _date(json['picksCloseAtUtc']),
+    nextRevealAtUtc: json['nextRevealAtUtc'] == null ? null : _date(json['nextRevealAtUtc']),
+    endsAtUtc: _date(json['endsAtUtc']),
+    revealed: json['revealed'] as String? ?? '',
+    commitHash: json['commitHash'] as String,
+    pot: _int(json['pot']),
+    players: _int(json['players']),
+    alive: _int(json['alive']),
+    my: json['my'] == null ? null : LotteryTicket.fromJson(_map(json['my'])),
+    result: json['result'] == null ? null : LotteryResult.fromJson(_map(json['result'])),
+  );
 }
 
 class BoardEntry {

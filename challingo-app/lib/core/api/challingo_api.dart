@@ -88,12 +88,14 @@ class ChallingoApi {
 
   // --- Competition --------------------------------------------------------
 
-  Future<Today> today() async => Today.fromJson(await _map('GET', 'competition/today'));
+  Future<Lobby> lobby() async => Lobby.fromJson(await _map('GET', 'competition/lobby'));
 
-  /// [key]: challenge id (round), UTC date (day), ISO week (week / grand); null = current.
-  Future<Board> board(BoardPeriod period, {String? key, BoardScope scope = BoardScope.global, String? groupId, int limit = 50}) async {
+  /// [gameKey] is required for day / week / month / all-time boards. [key]: challenge id (run), UTC date,
+  /// ISO week, `2026-10`; null = current.
+  Future<Board> board(BoardPeriod period, {String? gameKey, String? key, BoardScope scope = BoardScope.global, String? groupId, int limit = 50}) async {
     final query = {
       'period': period.index,
+      'gameKey': ?gameKey,
       'key': ?key,
       'scope': scope.index,
       'groupId': ?groupId,
@@ -101,6 +103,16 @@ class ChallingoApi {
     }.entries.map((e) => '${e.key}=${Uri.encodeQueryComponent('${e.value}')}').join('&');
     return Board.fromJson(await _map('GET', 'competition/boards?$query'));
   }
+
+  // --- Lottery ------------------------------------------------------------
+
+  Future<Lottery> lotteryToday() async => Lottery.fromJson(await _map('GET', 'lottery/today'));
+
+  /// [number]: ten digits, or null for a random "lucky dip".
+  Future<Lottery> pickLottery(String? number) async => Lottery.fromJson(await _map('POST', 'lottery/pick', body: {'number': number}));
+
+  Future<List<Lottery>> lotteryHistory() async =>
+      [for (final d in (await _send('GET', 'lottery/history')) as List) Lottery.fromJson((d as Map).cast<String, dynamic>())];
 
   // --- Groups -------------------------------------------------------------
 

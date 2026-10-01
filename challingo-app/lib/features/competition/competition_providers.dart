@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
+import '../../core/api/challingo_api.dart';
 import '../../core/api/competition_models.dart';
 import '../../core/services/realtime_service.dart';
 import '../../core/session/session_controller.dart';
@@ -22,11 +23,11 @@ String challengeTopic(String challengeId) => 'challenge:${challengeId.replaceAll
 /// SignalR topic of the live Grand board (server: `grand:{week}` lowercase).
 String grandTopic(String weekKey) => 'grand:${weekKey.toLowerCase()}';
 
-/// Today's rounds, daily puzzle, Grand Challenge, entries and stars. Refreshes when the server announces or
-/// closes something, and when the next known open/close time passes.
-final todayProvider = AsyncNotifierProvider<TodayController, Today>(TodayController.new);
+/// Every game's current and next run, the Grand Challenge, entries and stars. Refreshes when the server
+/// opens or closes something, and when the next known open / join-close time passes.
+final lobbyProvider = AsyncNotifierProvider<LobbyController, Lobby>(LobbyController.new);
 
-class TodayController extends AsyncNotifier<Today> {
+class LobbyController extends AsyncNotifier<Lobby> {
   Timer? _boundary;
   Duration _offset = Duration.zero;
 
@@ -34,44 +35,96 @@ class TodayController extends AsyncNotifier<Today> {
   DateTime serverNow() => DateTime.now().toUtc().add(_offset);
 
   @override
-  Future<Today> build() async {
+  Future<Lobby> build() async {
     // Follow the signed-in player.
     ref.watch(sessionProvider.select((s) => s.value?.userId));
-    refreshOnLive(ref, const ['round.opened', 'round.finalized', 'day.closed', 'week.closed', 'stars.awarded'], refresh);
+    refreshOnLive(ref, const ['run.opened', 'round.finalized', 'board.closed', 'stars.awarded', 'lottery.settled'], refresh);
     ref.onDispose(() => _boundary?.cancel());
 
-    final today = await ref.read(challingoApiProvider).today();
-    _offset = today.serverNowUtc.difference(DateTime.now().toUtc());
-    _scheduleBoundary(today);
-    return today;
+    final lobby = await ref.read(challingoApiProvider).lobby();
+    _offset = lobby.serverNowUtc.difference(DateTime.now().toUtc());
+    _scheduleBoundary(lobby);
+    return lobby;
   }
 
   Future<void> refresh() async {
-    final next = await AsyncValue.guard(() => ref.read(challingoApiProvider).today());
+    final next = await AsyncValue.guard(() => ref.read(challingoApiProvider).lobby());
     // Keep showing the last good data when a background refresh fails.
     if (next.hasValue || !state.hasValue) state = next;
-    if (next.value case final today?) {
-      _offset = today.serverNowUtc.difference(DateTime.now().toUtc());
-      _scheduleBoundary(today);
+    if (next.value case final lobby?) {
+      _offset = lobby.serverNowUtc.difference(DateTime.now().toUtc());
+      _scheduleBoundary(lobby);
     }
   }
 
-  void _scheduleBoundary(Today today) {
+  void _scheduleBoundary(Lobby lobby) {
     _boundary?.cancel();
     final now = serverNow();
     final times = [
-      for (final c in [...today.rounds, ?today.nextRound, ?today.daily, ...today.grand]) ...[c.opensAtUtc, c.closesAtUtc],
-      // Midnight UTC: a new day of rounds.
-      DateTime.utc(now.year, now.month, now.day + 1),
+      for (final g in lobby.games) ...[?g.current?.joinClosesAtUtc, ?g.next?.opensAtUtc],
+      for (final c in lobby.grand) ...[c.opensAtUtc, c.joinClosesAtUtc],
     ].where((t) => t.isAfter(now)).toList()
       ..sort();
     if (times.isEmpty) return;
     // A little after the boundary, so the server has moved on too.
-    _boundary = Timer(times.first.difference(now) + const Duration(seconds: 3), refresh);
+    _boundary = Timer(times.first.difference(now) + const Duration(seconds: 2), refresh);
   }
 }
 
-typedef BoardRequest = ({BoardPeriod period, String? key, BoardScope scope, String? groupId});
+/// Today's lottery draw; refreshes on every revealed digit and when it settles.
+final lotteryProvider = AsyncNotifierProvider<LotteryController, Lottery?>(LotteryController.new);
+
+class LotteryController extends AsyncNotifier<Lottery?> {
+  Timer? _boundary;
+
+  @override
+  Future<Lottery?> build() async {
+    ref.watch(sessionProvider.select((s) => s.value?.userId));
+    refreshOnLive(ref, const ['lottery.digit', 'lottery.settled'], refresh);
+    ref.onDispose(() => _boundary?.cancel());
+    return _load();
+  }
+
+  Future<Lottery?> _load() async {
+    Lottery? lottery;
+    try {
+      lottery = await ref.read(challingoApiProvider).lotteryToday();
+    } on ApiFailure catch (f) {
+      if (f.statusCode != 404) rethrow;
+    }
+    _schedule(lottery);
+    return lottery;
+  }
+
+  Future<void> refresh() async {
+    final next = await AsyncValue.guard(_load);
+    if (next.hasValue || !state.hasValue) state = next;
+  }
+
+  /// Picks (or changes) today's number; null = lucky dip.
+  Future<void> pick(String? number) async {
+    final updated = await ref.read(challingoApiProvider).pickLottery(number);
+    state = AsyncData(updated);
+  }
+
+  // Refresh at the next digit, at picks close, and at midnight UTC (a new draw).
+  void _schedule(Lottery? lottery) {
+    _boundary?.cancel();
+    final now = ref.read(lobbyProvider.notifier).serverNow();
+    final times = [
+      ?lottery?.nextRevealAtUtc,
+      ?lottery?.picksCloseAtUtc,
+      DateTime.utc(now.year, now.month, now.day + 1),
+    ].where((t) => t.isAfter(now)).toList()
+      ..sort();
+    if (times.isEmpty) return;
+    _boundary = Timer(times.first.difference(now) + const Duration(seconds: 2), refresh);
+  }
+}
+
+final lotteryHistoryProvider = FutureProvider.autoDispose<List<Lottery>>((ref) => ref.read(challingoApiProvider).lotteryHistory());
+
+typedef BoardRequest = ({BoardPeriod period, String? gameKey, String? key, BoardScope scope, String? groupId});
 
 /// One board; round and Grand boards refresh live while they are on screen.
 final boardProvider = FutureProvider.autoDispose.family<Board, BoardRequest>((ref, request) async {
@@ -95,7 +148,7 @@ final boardProvider = FutureProvider.autoDispose.family<Board, BoardRequest>((re
       unawaited(RealtimeService.instance.unsubscribe(t).catchError((_) {}));
     });
   }
-  return api.board(request.period, key: request.key, scope: request.scope, groupId: request.groupId);
+  return api.board(request.period, gameKey: request.gameKey, key: request.key, scope: request.scope, groupId: request.groupId);
 });
 
 /// The player's groups.

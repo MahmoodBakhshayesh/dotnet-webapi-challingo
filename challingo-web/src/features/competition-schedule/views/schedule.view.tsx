@@ -18,7 +18,7 @@ import { selectClass } from "@/features/puzzle-content/views/content-ui";
 const KIND_LABEL: Record<ChallengeKind, string> = {
   [ChallengeKind.Practice]: "Practice",
   [ChallengeKind.Daily]: "Daily puzzle",
-  [ChallengeKind.Ranked]: "Ranked round",
+  [ChallengeKind.Ranked]: "Run",
   [ChallengeKind.Grand]: "Grand game",
 };
 
@@ -46,7 +46,7 @@ export function ScheduleView({ viewState, actions, pending }: ScheduleViewModel)
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Schedule</h1>
             <p className="text-muted-foreground text-sm">
-              Six ranked rounds a day (UTC), a daily puzzle per local date, the Grand Challenge on Sundays. Puzzles can be swapped until they open.
+              Every game runs on its own UTC timer; Sundays add the Grand Challenge. Puzzles can be swapped until they open.
             </p>
           </div>
         </div>
@@ -68,6 +68,15 @@ export function ScheduleView({ viewState, actions, pending }: ScheduleViewModel)
           <Button variant="ghost" onClick={actions.today}>
             Today
           </Button>
+          <select className={selectClass} aria-label="Game" value={viewState.game} onChange={(e) => actions.setGame(e.target.value)}>
+            <option value="">All games</option>
+            <option value="grand">Grand Challenge</option>
+            {gameOptions.map((g) => (
+              <option key={g} value={g}>
+                {GAME_TITLES[g] ?? g}
+              </option>
+            ))}
+          </select>
           <span className="text-muted-foreground ml-auto text-sm">{viewState.isSunday ? "Sunday: Grand Challenge" : "All times UTC"}</span>
         </CardContent>
       </Card>
@@ -76,14 +85,14 @@ export function ScheduleView({ viewState, actions, pending }: ScheduleViewModel)
         <CardHeader>
           <CardTitle>{viewState.date}</CardTitle>
           <CardDescription>
-            {viewState.entries.length} scheduled {viewState.entries.length === 1 ? "challenge" : "challenges"}
+            {viewState.entries.length} shown of {viewState.total} scheduled
           </CardDescription>
         </CardHeader>
         <CardContent>
           {viewState.error ? <p className="text-destructive text-sm">{viewState.error}</p> : null}
           {viewState.loading ? <p className="text-muted-foreground text-sm">Loading…</p> : null}
           {!viewState.loading && !viewState.error && viewState.entries.length === 0 ? (
-            <p className="text-muted-foreground text-sm">Nothing scheduled for this date yet. The Worker plans 8 days ahead; “Run jobs now” fills gaps.</p>
+            <p className="text-muted-foreground text-sm">Nothing scheduled here yet. The Worker plans runs 30 hours ahead (Grand: 8 days); “Run jobs now” fills gaps.</p>
           ) : null}
           {viewState.entries.length ? (
             <div className="overflow-x-auto">
@@ -93,6 +102,7 @@ export function ScheduleView({ viewState, actions, pending }: ScheduleViewModel)
                     <th className="py-2 pr-3 font-medium">Slot</th>
                     <th className="py-2 pr-3 font-medium">Game</th>
                     <th className="py-2 pr-3 font-medium">Opens</th>
+                    <th className="py-2 pr-3 font-medium">Joins close</th>
                     <th className="py-2 pr-3 font-medium">Closes</th>
                     <th className="py-2 pr-3 font-medium">State</th>
                     <th className="py-2 pr-3 text-right font-medium">Players</th>
@@ -110,7 +120,7 @@ export function ScheduleView({ viewState, actions, pending }: ScheduleViewModel)
                         <td className="py-2 pr-3">
                           <div className="font-medium">
                             {KIND_LABEL[e.kind]}
-                            {e.kind === ChallengeKind.Daily ? "" : ` ${e.sequence}`}
+                            {` ${e.sequence}`}
                           </div>
                           <div className="text-muted-foreground text-xs">{e.slotKey}</div>
                         </td>
@@ -135,6 +145,7 @@ export function ScheduleView({ viewState, actions, pending }: ScheduleViewModel)
                           <span className="text-muted-foreground ml-2 text-xs">d{e.difficulty}</span>
                         </td>
                         <td className="py-2 pr-3 tabular-nums">{utcTime(e.opensAtUtc)}</td>
+                        <td className="py-2 pr-3 tabular-nums">{utcTime(e.joinClosesAtUtc)}</td>
                         <td className="py-2 pr-3 tabular-nums">{utcTime(e.closesAtUtc)}</td>
                         <td className="py-2 pr-3">
                           <StateBadge entry={e} />

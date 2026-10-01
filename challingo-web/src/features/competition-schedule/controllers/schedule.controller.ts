@@ -24,6 +24,8 @@ function shiftDate(date: string, days: number) {
 export function useScheduleController() {
   const queryClient = useQueryClient();
   const [date, setDate] = useState(todayUtc);
+  // "" = all games; "grand" = the Grand Challenge only.
+  const [game, setGame] = useState("");
 
   const scheduleQuery = useQuery({ queryKey: queryKeys.schedule(date), queryFn: () => listDayScheduleUseCase(date) });
   const gamesQuery = useQuery({ queryKey: queryKeys.games, queryFn: listGamesUseCase });
@@ -41,17 +43,21 @@ export function useScheduleController() {
     mutationFn: runCompetitionUseCase,
     onSuccess: (r) => {
       toast.success(
-        `Scheduled ${r.scheduled}, announced ${r.announced}, finalized ${r.finalized}, closed ${r.daysClosed} days and ${r.weeksClosed} weeks`,
+        `Scheduled ${r.scheduled}, announced ${r.announced}, finalized ${r.finalized}, closed ${r.periodsClosed} boards` +
+          (r.lotterySettled ? ", settled the lottery" : ""),
       );
       void queryClient.invalidateQueries({ queryKey: queryKeys.scheduleAll });
     },
     onError: (e: Error) => toastError(e, "Could not run the competition jobs"),
   });
 
+  const entries = scheduleQuery.data ?? [];
   return {
     viewState: {
       date,
-      entries: scheduleQuery.data ?? [],
+      game,
+      entries: entries.filter((e) => (game === "" ? true : game === "grand" ? e.kind === 3 : e.gameKey === game && e.kind !== 3)),
+      total: entries.length,
       games: gamesQuery.data ?? [],
       loading: scheduleQuery.isLoading,
       error: scheduleQuery.error ? (scheduleQuery.error as Error).message : null,
@@ -59,6 +65,7 @@ export function useScheduleController() {
     },
     actions: {
       setDate,
+      setGame,
       previousDay: () => setDate((d) => shiftDate(d, -1)),
       nextDay: () => setDate((d) => shiftDate(d, 1)),
       today: () => setDate(todayUtc()),
