@@ -37,6 +37,43 @@ namespace Challingo.Infrastructure.Migrations
                     b.ToTable("AspNetUserRoles", (string)null);
                 });
 
+            modelBuilder.Entity("Challingo.Core.Domain.Entities.AdReward", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AdUnit")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("DayKey")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<DateTime>("RewardedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("TransactionId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TransactionId")
+                        .IsUnique();
+
+                    b.HasIndex("UserId", "DayKey");
+
+                    b.ToTable("AdRewards", (string)null);
+                });
+
             modelBuilder.Entity("Challingo.Core.Domain.Entities.Attempt", b =>
                 {
                     b.Property<Guid>("Id")
@@ -474,6 +511,33 @@ namespace Challingo.Infrastructure.Migrations
                     b.ToTable("PlayerProfiles", (string)null);
                 });
 
+            modelBuilder.Entity("Challingo.Core.Domain.Entities.PlusEntitlement", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("ExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ProductId")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("Store")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("UserId");
+
+                    b.ToTable("PlusEntitlements", (string)null);
+                });
+
             modelBuilder.Entity("Challingo.Core.Domain.Entities.Puzzle", b =>
                 {
                     b.Property<Guid>("Id")
@@ -826,6 +890,15 @@ namespace Challingo.Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Challingo.Core.Domain.Entities.AdReward", b =>
+                {
+                    b.HasOne("Challingo.Core.Domain.IdentityEntities.AppUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Challingo.Core.Domain.Entities.Attempt", b =>
                 {
                     b.HasOne("Challingo.Core.Domain.Entities.Challenge", "Challenge")
@@ -899,6 +972,15 @@ namespace Challingo.Infrastructure.Migrations
                     b.HasOne("Challingo.Core.Domain.IdentityEntities.AppUser", null)
                         .WithOne()
                         .HasForeignKey("Challingo.Core.Domain.Entities.PlayerProfile", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Challingo.Core.Domain.Entities.PlusEntitlement", b =>
+                {
+                    b.HasOne("Challingo.Core.Domain.IdentityEntities.AppUser", null)
+                        .WithOne()
+                        .HasForeignKey("Challingo.Core.Domain.Entities.PlusEntitlement", "UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

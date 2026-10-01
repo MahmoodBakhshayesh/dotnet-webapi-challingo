@@ -20,9 +20,11 @@ public sealed class CompetitionService(
     IGroupRepository groups,
     IPuzzleGameRegistry games,
     ILotteryService lottery,
+    IMonetizationService monetization,
     ILeaderboardStore boards,
     IRealtimeNotifier realtime,
     IOptions<CompetitionOptions> options,
+    IOptions<MonetizationOptions> monetizationOptions,
     TimeProvider clock) : ICompetitionService
 {
     private CompetitionOptions Options => options.Value;
@@ -37,16 +39,19 @@ public sealed class CompetitionService(
 
         var country = PlayerTimeZones.CountryFor(PlayerProfileRules.EffectiveTimeZone(profile, nowUtc));
         if (challenge.Kind == ChallengeKind.Ranked
-            && AllowedRankedRuns(userId) is { } allowed
+            && await AllowedRankedRunsAsync(userId) is { } allowed
             && await competition.CountRankedEntriesAsync(userId, challenge.PeriodKey!) >= allowed)
         {
-            return EntryDecision.Deny("You have used today's free runs. Watch an ad or go Plus to play more.", 402);
+            return EntryDecision.Deny("You have used today's runs. Watch an ad or go Plus to play more.", 402);
         }
         return new EntryDecision { CountryCode = country };
     }
 
-    // Ads and Plus add runs in Stage 3 (Plus = unlimited, returns null); until then everyone has the free allowance.
-    private int? AllowedRankedRuns(Guid userId) => Options.FreeRankedRunsPerDay;
+    /// <summary>Free runs plus runs from today's rewarded ads; null (unlimited) with Plus.</summary>
+    private async Task<int?> AllowedRankedRunsAsync(Guid userId) =>
+        await monetization.IsPlusAsync(userId)
+            ? null
+            : Options.FreeRankedRunsPerDay + await monetization.AdsTodayAsync(userId) * monetizationOptions.Value.RunsPerAd;
 
     public async Task<StandingDto?> OnAttemptCompletedAsync(Attempt attempt, Challenge challenge)
     {
@@ -126,7 +131,7 @@ public sealed class CompetitionService(
             });
         }
 
-        var allowed = AllowedRankedRuns(userId);
+        var allowed = await AllowedRankedRunsAsync(userId);
         return AppResponse.Ok(new LobbyResponse
         {
             ServerNowUtc = now,
@@ -141,6 +146,9 @@ public sealed class CompetitionService(
                 Used = runsToday.Values.Sum(),
                 Allowed = allowed,
                 Free = Options.FreeRankedRunsPerDay,
+                AdsToday = await monetization.AdsTodayAsync(userId),
+                AdsPerDay = monetizationOptions.Value.AdsPerDay,
+                Plus = allowed is null,
             },
             Stars = await competition.GetStarBalanceAsync(userId),
             Lottery = await lottery.GetTodayAsync(userId),

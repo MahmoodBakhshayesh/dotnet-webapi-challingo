@@ -64,6 +64,11 @@ public sealed class EntryAllowanceDto
     /// <summary>Ranked runs the player may start today (free + unlocked); null = unlimited (Plus).</summary>
     public int? Allowed { get; init; }
     public int Free { get; init; }
+
+    /// <summary>Rewarded ads counted today and the daily maximum (each adds runs and stars).</summary>
+    public int AdsToday { get; init; }
+    public int AdsPerDay { get; init; }
+    public bool Plus { get; init; }
 }
 
 public sealed class LobbyResponse

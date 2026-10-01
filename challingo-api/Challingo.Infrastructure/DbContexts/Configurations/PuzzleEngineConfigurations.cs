@@ -85,6 +85,32 @@ public sealed class LotteryTicketConfiguration : IEntityTypeConfiguration<Lotter
     }
 }
 
+public sealed class AdRewardConfiguration : IEntityTypeConfiguration<AdReward>
+{
+    public void Configure(EntityTypeBuilder<AdReward> builder)
+    {
+        builder.ToTable("AdRewards");
+        builder.Property(x => x.DayKey).HasMaxLength(10).IsRequired();
+        builder.Property(x => x.TransactionId).HasMaxLength(128).IsRequired();
+        builder.Property(x => x.AdUnit).HasMaxLength(128);
+        builder.HasIndex(x => x.TransactionId).IsUnique();
+        builder.HasIndex(x => new { x.UserId, x.DayKey });
+        builder.HasOne<AppUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+public sealed class PlusEntitlementConfiguration : IEntityTypeConfiguration<PlusEntitlement>
+{
+    public void Configure(EntityTypeBuilder<PlusEntitlement> builder)
+    {
+        builder.ToTable("PlusEntitlements");
+        builder.HasKey(x => x.UserId);
+        builder.Property(x => x.ProductId).HasMaxLength(128);
+        builder.Property(x => x.Store).HasMaxLength(32);
+        builder.HasOne<AppUser>().WithOne().HasForeignKey<PlusEntitlement>(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
 public sealed class StarTransactionConfiguration : IEntityTypeConfiguration<StarTransaction>
 {
     public void Configure(EntityTypeBuilder<StarTransaction> builder)

@@ -33,4 +33,8 @@
     <ProjectReference Include="..\Challingo.Core\Challingo.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Challingo.Tests" />
+  </ItemGroup>
+
 </Project>

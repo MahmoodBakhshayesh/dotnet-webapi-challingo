@@ -19,6 +19,7 @@ using Challingo.Core.Puzzles.Words;
 using Challingo.Core.ServiceInterfaces;
 using Challingo.Core.Services;
 using Challingo.Core.Settings;
+using Challingo.Infrastructure.Monetization;
 using Challingo.Infrastructure.Repositories;
 using Challingo.Infrastructure.Words;
 
@@ -68,6 +69,14 @@ public static class ChallingoServiceCollectionExtensions
         services.AddTransient<IGroupRepository, GroupRepository>();
         services.AddTransient<ILotteryRepository, LotteryRepository>();
         services.AddTransient<ILotteryService, LotteryService>();
+
+        // Rewarded ads (AdMob server-side verification) and Plus (RevenueCat).
+        services.AddOptions<MonetizationOptions>().BindConfiguration("Monetization");
+        services.AddMemoryCache();
+        services.AddHttpClient<IAdMobSignatureVerifier, AdMobSignatureVerifier>(c => c.Timeout = TimeSpan.FromSeconds(10));
+        services.AddHttpClient<IRevenueCatClient, RevenueCatClient>(c => c.Timeout = TimeSpan.FromSeconds(10));
+        services.AddTransient<IMonetizationRepository, MonetizationRepository>();
+        services.AddTransient<IMonetizationService, MonetizationService>();
         services.AddTransient<ICompetitionService, CompetitionService>();
         services.AddTransient<ICompetitionScheduler, CompetitionScheduler>();
         services.AddTransient<ICompetitionCloser, CompetitionCloser>();

@@ -31,6 +31,8 @@ namespace Challingo.Infrastructure.DbContexts
         public DbSet<GroupMember> GroupMembers { set; get; }
         public DbSet<LotteryDraw> LotteryDraws { set; get; }
         public DbSet<LotteryTicket> LotteryTickets { set; get; }
+        public DbSet<AdReward> AdRewards { set; get; }
+        public DbSet<PlusEntitlement> PlusEntitlements { set; get; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -51,6 +53,8 @@ namespace Challingo.Infrastructure.DbContexts
             builder.ApplyConfiguration(new Configurations.GroupMemberConfiguration());
             builder.ApplyConfiguration(new Configurations.LotteryDrawConfiguration());
             builder.ApplyConfiguration(new Configurations.LotteryTicketConfiguration());
+            builder.ApplyConfiguration(new Configurations.AdRewardConfiguration());
+            builder.ApplyConfiguration(new Configurations.PlusEntitlementConfiguration());
         }
 
         public override int SaveChanges() =>

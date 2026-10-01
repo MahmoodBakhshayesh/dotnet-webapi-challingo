@@ -201,6 +201,8 @@ $order = @(
 
     'Competition__FreeRankedRunsPerDay', 'Competition__SmallRoundThreshold', 'Competition__ScheduleHoursAhead', 'Competition__InviteBaseUrl', 'Competition__AllowAdminTimeTravel', 'Competition__LotteryPot', '',
 
+    'Monetization__AdsPerDay', 'Monetization__RunsPerAd', 'Monetization__StarsPerAd', 'Monetization__AllowDevRewards', 'Monetization__AdMob__AllowedAdUnits', 'Monetization__RevenueCat__WebhookAuthorization', 'Monetization__RevenueCat__SecretApiKey', 'Monetization__RevenueCat__EntitlementId', '',
+
     'Realtime__Enabled', 'Realtime__HubPath', 'Realtime__KeepAliveSeconds', 'Realtime__ClientTimeoutSeconds', 'Realtime__EnableDetailedErrors', '',
 
 

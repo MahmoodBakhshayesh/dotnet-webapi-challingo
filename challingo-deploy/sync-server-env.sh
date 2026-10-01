@@ -422,6 +422,24 @@ write_kv() {
 
   write_kv Competition__LotteryPot
 
+  echo
+
+  write_kv Monetization__AdsPerDay
+
+  write_kv Monetization__RunsPerAd
+
+  write_kv Monetization__StarsPerAd
+
+  write_kv Monetization__AllowDevRewards
+
+  write_kv Monetization__AdMob__AllowedAdUnits
+
+  write_kv Monetization__RevenueCat__WebhookAuthorization
+
+  write_kv Monetization__RevenueCat__SecretApiKey
+
+  write_kv Monetization__RevenueCat__EntitlementId
+
   write_kv REDIS_HOST_PORT
 
   echo
