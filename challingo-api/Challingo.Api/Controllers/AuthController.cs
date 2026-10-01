@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Challingo.Core.DTO.Auth;
 using Challingo.Core.DTO.LoginDto;
+using Challingo.Core.DTO.Players;
 using Challingo.Core.DTO.Token;
 using Challingo.Core.ServiceInterfaces;
 
@@ -12,8 +13,15 @@ public class AuthController(
     IAuthService authService,
     IPhoneAuthService phoneAuthService,
     IEmailAuthService emailAuthService,
-    IGoogleAuthService googleAuthService) : AppController
+    IGoogleAuthService googleAuthService,
+    IPlayerProfileService playerProfiles) : AppController
 {
+    /// <summary>Play without an account; the guest can attach an email later via /api/me/email/*.</summary>
+    [EnableRateLimiting("auth-otp")]
+    [HttpPost("guest")]
+    public Task<ActionResult<UserLoginResponse>> Guest(CreateGuestRequest request) =>
+        playerProfiles.CreateGuestAsync(request);
+
     [EnableRateLimiting("auth-otp")]
     [HttpPost("google")]
     public Task<ActionResult<UserLoginResponse>> GoogleLogin(GoogleLoginRequest request) =>

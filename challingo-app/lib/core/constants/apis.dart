@@ -1,8 +1,9 @@
 class Apis {
   Apis._();
 
-  /// Configured at project generation via Mason `base_url`.
-  static const String _origin = 'https:&#x2F;&#x2F;example.com';
+  /// API origin. Override per build: `flutter run --dart-define=API_ORIGIN=https://api.example.com`.
+  /// Default suits the iOS simulator; the Android emulator reaches the host at http://10.0.2.2:5128.
+  static const String _origin = String.fromEnvironment('API_ORIGIN', defaultValue: 'http://localhost:5128');
 
   static const String baseUrl = '$_origin/api/';
   static const String photoBaseUrl = _origin;

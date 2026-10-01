@@ -20,6 +20,11 @@ namespace Challingo.Infrastructure.DbContexts
         public DbSet<Organization> Organizations { set; get; }
         public DbSet<RefreshToken> RefreshTokens { set; get; }
         public DbSet<PhoneOtpChallenge> PhoneOtpChallenges { set; get; }
+        public DbSet<PlayerProfile> PlayerProfiles { set; get; }
+        public DbSet<Puzzle> Puzzles { set; get; }
+        public DbSet<Challenge> Challenges { set; get; }
+        public DbSet<Attempt> Attempts { set; get; }
+        public DbSet<PuzzleContent> PuzzleContents { set; get; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -29,6 +34,11 @@ namespace Challingo.Infrastructure.DbContexts
             builder.ApplyConfiguration(new Configurations.AppUserRoleConfiguration());
             builder.ApplyConfiguration(new Configurations.PhoneOtpChallengeConfiguration());
             builder.ApplyConfiguration(new Configurations.OrganizationConfiguration());
+            builder.ApplyConfiguration(new Configurations.PlayerProfileConfiguration());
+            builder.ApplyConfiguration(new Configurations.PuzzleConfiguration());
+            builder.ApplyConfiguration(new Configurations.ChallengeConfiguration());
+            builder.ApplyConfiguration(new Configurations.AttemptConfiguration());
+            builder.ApplyConfiguration(new Configurations.PuzzleContentConfiguration());
         }
 
         public override int SaveChanges() =>

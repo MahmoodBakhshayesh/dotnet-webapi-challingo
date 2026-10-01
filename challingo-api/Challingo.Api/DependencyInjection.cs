@@ -10,7 +10,22 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
+using Challingo.Core.Puzzles;
+using Challingo.Core.Puzzles.Content;
+using Challingo.Core.Puzzles.Games.CodeBreaker;
+using Challingo.Core.Puzzles.Games.Kakuro;
+using Challingo.Core.Puzzles.Games.MineLogic;
+using Challingo.Core.Puzzles.Games.MiniCrossword;
+using Challingo.Core.Puzzles.Games.Nonogram;
+using Challingo.Core.Puzzles.Games.NumberMerge;
+using Challingo.Core.Puzzles.Games.PathLink;
+using Challingo.Core.Puzzles.Games.Sudoku;
+using Challingo.Core.Puzzles.Games.WordGuess;
+using Challingo.Core.Puzzles.Games.WordHunt;
+using Challingo.Core.Puzzles.Words;
+using Challingo.Infrastructure.Words;
 using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json.Serialization;
 using System.Security.Claims;
@@ -124,6 +139,41 @@ namespace Challingo.Api
             builder.Services.AddTransient<IOrganizationRepository, OrganizationsRepository>();
             builder.Services.AddTransient<IOrganizationService, OrganizationService>();
 
+            // Players: guest accounts, profile, time zone / country.
+            builder.Services.TryAddSingleton(TimeProvider.System);
+            builder.Services.AddTransient<IAccountRepository, AccountRepository>();
+            builder.Services.AddTransient<IPlayerProfileRepository, PlayerProfileRepository>();
+            builder.Services.AddTransient<IPlayerProfileService, PlayerProfileService>();
+
+            // Puzzle engine: one IPuzzleGame per minigame, looked up by key. Generated games are singletons;
+            // games built from reviewed content (and so the registry) are scoped to the request's DbContext.
+            builder.Services.AddOptions<PuzzleOptions>().BindConfiguration("Puzzles");
+            builder.Services.AddOptions<WordsOptions>().BindConfiguration("Words");
+            builder.Services.AddSingleton<IWordDictionary>(sp =>
+            {
+                var path = sp.GetRequiredService<IOptions<WordsOptions>>().Value.DictionaryPath;
+                var fullPath = Path.IsPathRooted(path) ? path : Path.Combine(builder.Environment.ContentRootPath, path);
+                return FileWordDictionary.Load(fullPath, sp.GetRequiredService<ILoggerFactory>().CreateLogger("Words"));
+            });
+            builder.Services.AddSingleton<IPuzzleGame, SudokuGame>();
+            builder.Services.AddSingleton<IPuzzleGame, PathLinkGame>();
+            builder.Services.AddSingleton<IPuzzleGame, KakuroGame>();
+            builder.Services.AddSingleton<IPuzzleGame, NonogramGame>();
+            builder.Services.AddSingleton<IPuzzleGame, MineLogicGame>();
+            builder.Services.AddSingleton<IPuzzleGame, CodeBreakerGame>();
+            builder.Services.AddSingleton<IPuzzleGame, NumberMergeGame>();
+            builder.Services.AddSingleton<IPuzzleGame, WordHuntGame>();
+            builder.Services.AddScoped<IPuzzleGame, WordGuessGame>();
+            builder.Services.AddScoped<IPuzzleGame, MiniCrosswordGame>();
+            builder.Services.AddScoped<IPuzzleGameRegistry, PuzzleGameRegistry>();
+            builder.Services.AddSingleton<IPuzzleContentValidator, WordGuessContentValidator>();
+            builder.Services.AddSingleton<IPuzzleContentValidator, MiniCrosswordContentValidator>();
+            builder.Services.AddTransient<IPuzzleContentRepository, PuzzleContentRepository>();
+            builder.Services.AddTransient<IPuzzleContentService, PuzzleContentService>();
+            builder.Services.AddSingleton<IAttemptTokenService, AttemptTokenService>();
+            builder.Services.AddTransient<IChallengeRepository, ChallengeRepository>();
+            builder.Services.AddTransient<IChallengeService, ChallengeService>();
+
 
 
 
@@ -136,7 +186,9 @@ namespace Challingo.Api
 
             builder.Services.AddIdentity<AppUser, AppRole>(option =>
             {
-                option.User.RequireUniqueEmail = true;
+                // Guests have no email. Email uniqueness is enforced by the sign-up and guest-upgrade flows,
+                // which check FindByEmailAsync before attaching an address.
+                option.User.RequireUniqueEmail = false;
 
             })
                 .AddEntityFrameworkStores<AppDbContext>()
