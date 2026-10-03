@@ -13,6 +13,8 @@ RUN dotnet restore Challingo.Worker/Challingo.Worker.csproj
 COPY Challingo.Core/ Challingo.Core/
 COPY Challingo.Infrastructure/ Challingo.Infrastructure/
 COPY Challingo.Worker/ Challingo.Worker/
+# The word list lives with the API; the Worker needs it to generate Word Hunt runs (linked in the csproj).
+COPY Challingo.Api/Data/words/ Challingo.Api/Data/words/
 
 RUN dotnet publish Challingo.Worker/Challingo.Worker.csproj -c Release -o /app/publish
 
