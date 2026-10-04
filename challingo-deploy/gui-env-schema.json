@@ -1,0 +1,23 @@
+{
+  "sectionHints": {
+    "Competition": "Game runs, boards and the daily draw. Per-game timers: add Competition__Runs__<game>__EveryMinutes (must divide 1440) in api.env.",
+    "Monetization": "Rewarded ads (AdMob server-side verification) and Plus (RevenueCat). Test rewards must be off in production. Setup: challingo-deploy/SETUP-GUIDE.md §7.5.2."
+  },
+  "fields": [
+    { "file": "api", "section": "Competition", "key": "Competition__FreeRankedRunsPerDay", "label": "Free ranked runs per day", "type": "number" },
+    { "file": "api", "section": "Competition", "key": "Competition__SmallRoundThreshold", "label": "Players for percentile scoring", "type": "number" },
+    { "file": "api", "section": "Competition", "key": "Competition__ScheduleHoursAhead", "label": "Schedule runs ahead (hours)", "type": "number" },
+    { "file": "api", "section": "Competition", "key": "Competition__LotteryPot", "label": "Daily draw pot (stars)", "type": "number" },
+    { "file": "api", "section": "Competition", "key": "Competition__InviteBaseUrl", "label": "Group invite link base", "type": "string", "required": true },
+    { "file": "api", "section": "Competition", "key": "Competition__AllowAdminTimeTravel", "label": "Admins may move run windows (testing)", "type": "bool", "production": "false" },
+
+    { "file": "api", "section": "Monetization", "key": "Monetization__AdsPerDay", "label": "Rewarded ads per day", "type": "number" },
+    { "file": "api", "section": "Monetization", "key": "Monetization__RunsPerAd", "label": "Runs per ad", "type": "number" },
+    { "file": "api", "section": "Monetization", "key": "Monetization__StarsPerAd", "label": "Stars per ad", "type": "number" },
+    { "file": "api", "section": "Monetization", "key": "Monetization__AllowDevRewards", "label": "Test ads and test Plus", "type": "bool", "production": "false" },
+    { "file": "api", "section": "Monetization", "key": "Monetization__AdMob__AllowedAdUnits", "label": "Accepted AdMob ad units (comma-separated)", "type": "string" },
+    { "file": "api", "section": "Monetization", "key": "Monetization__RevenueCat__WebhookAuthorization", "label": "RevenueCat webhook Authorization value", "type": "secret" },
+    { "file": "api", "section": "Monetization", "key": "Monetization__RevenueCat__SecretApiKey", "label": "RevenueCat secret API key (sk_…)", "type": "secret" },
+    { "file": "api", "section": "Monetization", "key": "Monetization__RevenueCat__EntitlementId", "label": "RevenueCat entitlement", "type": "string" }
+  ]
+}

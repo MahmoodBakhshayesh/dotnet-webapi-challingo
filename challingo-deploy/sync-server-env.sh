@@ -44,7 +44,7 @@ read_env() {
 
 
 
-declare -A OUT PRESERVE
+declare -A OUT PRESERVE WRITTEN
 
 should_skip() {
 
@@ -183,6 +183,7 @@ write_kv() {
 
   local k="$1"
 
+  WRITTEN["$k"]=1
   [[ -n "${OUT[$k]:-}" ]] || return 0
   local v
   v="$(format_env_value "${OUT[$k]}")"
@@ -511,6 +512,15 @@ write_kv() {
   write_kv Stripe__SuccessUrl
 
   write_kv Stripe__CancelUrl
+
+  # Keys not listed above (project-specific settings such as Competition__*, Monetization__*,
+  # Scheduler__Jobs__<Name>__Cron) must still reach the server — same as sync-server-env.ps1.
+  _extra="$(for k in "${!OUT[@]}"; do [[ -n "${WRITTEN[$k]:-}" ]] || printf '%s\n' "$k"; done | sort)"
+  if [[ -n "$_extra" ]]; then
+    echo
+    echo "# Other keys from api.env / web.env"
+    while IFS= read -r k; do write_kv "$k"; done <<< "$_extra"
+  fi
 
 } > "$SERVER_ENV"
 
