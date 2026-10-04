@@ -13,6 +13,7 @@ import '../../widgets/challingo/challingo_widgets.dart';
 import '../../widgets/challingo/tilo.dart';
 import '../competition/competition_providers.dart';
 import '../competition/competition_widgets.dart';
+import '../help/how_to_play_sheet.dart';
 import 'board_context.dart';
 import 'boards/boards.dart';
 import 'game_catalog.dart';
@@ -21,7 +22,7 @@ import 'results_screen.dart';
 /// Plays one attempt: creates a practice challenge for [game] (or opens [challengeId]), starts/resumes it,
 /// hosts the game's board, and swaps to the results when the attempt ends.
 class PlayScreen extends ConsumerStatefulWidget {
-  const PlayScreen({super.key, required this.game, this.challengeId, this.kind = ChallengeKind.practice, this.sequence = 0});
+  const PlayScreen({super.key, required this.game, this.challengeId, this.kind = ChallengeKind.practice, this.sequence = 0, this.level});
 
   final GameKind game;
   final String? challengeId;
@@ -29,6 +30,9 @@ class PlayScreen extends ConsumerStatefulWidget {
   /// Daily, ranked or Grand when [challengeId] is a shared challenge.
   final ChallengeKind kind;
   final int sequence;
+
+  /// Practice level (1–4); null = server default.
+  final int? level;
 
   @override
   ConsumerState<PlayScreen> createState() => _PlayScreenState();
@@ -45,7 +49,11 @@ class _PlayScreenState extends ConsumerState<PlayScreen> {
   @override
   void initState() {
     super.initState();
-    _begin();
+    // First game of this kind: teach it before the attempt (and its clock) starts.
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await HowToPlaySheet.showIfFirstTime(context, widget.game);
+      if (mounted) _begin();
+    });
   }
 
   @override
@@ -57,7 +65,7 @@ class _PlayScreenState extends ConsumerState<PlayScreen> {
   Future<void> _begin() async {
     setState(() => _error = null);
     try {
-      final challengeId = widget.challengeId ?? (await _api.createPractice(widget.game.key)).challengeId;
+      final challengeId = widget.challengeId ?? (await _api.createPractice(widget.game.key, difficulty: widget.level)).challengeId;
       final attempt = await _api.start(challengeId);
       if (!mounted) return;
       setState(() {
@@ -151,10 +159,14 @@ class _PlayScreenState extends ConsumerState<PlayScreen> {
             children: [
               _TopBar(
                 game: widget.game,
-                label: challengeLabel(widget.kind, widget.sequence),
+                label: [
+                  challengeLabel(widget.kind, widget.sequence),
+                  if (widget.game.hasLevels && attempt != null) levelName(attempt.difficulty),
+                ].where((s) => s.isNotEmpty).join(' · '),
                 attempt: attempt,
                 serverNow: _serverNow,
                 onBack: () => context.go('/home'),
+                onHelp: () => HowToPlaySheet.show(context, widget.game),
               ),
               const SizedBox(height: 16),
               Expanded(
@@ -176,13 +188,14 @@ class _PlayScreenState extends ConsumerState<PlayScreen> {
 }
 
 class _TopBar extends StatelessWidget {
-  const _TopBar({required this.game, required this.label, required this.attempt, required this.serverNow, required this.onBack});
+  const _TopBar({required this.game, required this.label, required this.attempt, required this.serverNow, required this.onBack, required this.onHelp});
 
   final GameKind game;
   final String label;
   final AttemptStart? attempt;
   final DateTime Function() serverNow;
   final VoidCallback onBack;
+  final VoidCallback onHelp;
 
   @override
   Widget build(BuildContext context) {
@@ -205,6 +218,8 @@ class _TopBar extends StatelessWidget {
           ),
         ),
         if (a != null) LivePill(label: formatDuration(clock), icon: Icons.timer_outlined),
+        const SizedBox(width: 8),
+        SquareIconButton(icon: Icons.question_mark_rounded, label: 'How to play', onPressed: onHelp),
       ],
     );
   }

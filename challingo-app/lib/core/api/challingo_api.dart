@@ -67,8 +67,10 @@ class ChallingoApi {
 
   Future<List<String>> games() async => ((await _send('GET', 'challenges/games')) as List).cast<String>();
 
-  Future<ChallengeInfo> createPractice(String gameKey) async =>
-      ChallengeInfo.fromJson(await _map('POST', 'challenges/practice/$gameKey'));
+  /// [difficulty]: 1 = Beginner … 4 = Expert (null = server default).
+  Future<ChallengeInfo> createPractice(String gameKey, {int? difficulty}) async => ChallengeInfo.fromJson(
+    await _map('POST', 'challenges/practice/$gameKey${difficulty == null ? '' : '?difficulty=$difficulty'}'),
+  );
 
   Future<AttemptStart> start(String challengeId) async =>
       AttemptStart.fromJson(await _map('POST', 'challenges/$challengeId/start'));

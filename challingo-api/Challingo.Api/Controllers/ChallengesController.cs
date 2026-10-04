@@ -15,9 +15,10 @@ public class ChallengesController(IChallengeService challenges, IPuzzleGameRegis
     public ActionResult<IReadOnlyList<string>> Games() =>
         AppResponse.OkList(games.Keys.Order());
 
+    /// <summary>A fresh unranked puzzle; <c>?difficulty=1..4</c> (Beginner … Expert).</summary>
     [HttpPost("practice/{gameKey}")]
-    public async Task<ActionResult<ChallengeResponse>> CreatePractice(string gameKey) =>
-        User.GetUserId() is { } id ? await challenges.CreatePracticeAsync(id, gameKey) : Unauthorized();
+    public async Task<ActionResult<ChallengeResponse>> CreatePractice(string gameKey, [FromQuery] int? difficulty) =>
+        User.GetUserId() is { } id ? await challenges.CreatePracticeAsync(id, gameKey, difficulty) : Unauthorized();
 
     [HttpPost("{challengeId:guid}/start")]
     public async Task<ActionResult<StartAttemptResponse>> Start(Guid challengeId) =>

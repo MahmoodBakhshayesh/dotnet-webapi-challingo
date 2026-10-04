@@ -77,6 +77,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             challengeId: q['challenge'],
             kind: ChallengeKind.values[int.tryParse(q['kind'] ?? '') ?? 0],
             sequence: int.tryParse(q['seq'] ?? '') ?? 0,
+            level: int.tryParse(q['level'] ?? ''),
           );
         },
       ),

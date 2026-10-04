@@ -11,6 +11,9 @@ public sealed class ChallengeResponse
     public required string GameKey { get; init; }
     public DateTime OpensAtUtc { get; init; }
     public DateTime ClosesAtUtc { get; init; }
+
+    /// <summary>1 = Beginner … 4 = Expert.</summary>
+    public int Difficulty { get; init; }
 }
 
 public sealed class StartAttemptResponse
@@ -21,6 +24,9 @@ public sealed class StartAttemptResponse
     public required string AttemptToken { get; init; }
 
     public required string GameKey { get; init; }
+
+    /// <summary>1 = Beginner … 4 = Expert.</summary>
+    public int Difficulty { get; init; }
 
     /// <summary>The puzzle as the app may see it (never the solution).</summary>
     public required JToken Puzzle { get; init; }

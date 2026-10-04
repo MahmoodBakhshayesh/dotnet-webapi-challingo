@@ -124,10 +124,10 @@ String lotteryStatusLine(Lottery l) {
   final my = l.my;
   switch (l.phase) {
     case LotteryPhase.picking:
-      return my == null ? 'Pick your lucky number before 14:00 UTC' : 'Your number: ${my.number}';
+      return my == null ? 'Pick your lucky number before ${localTime(l.picksCloseAtUtc)}' : 'Your number: ${my.number}';
     case LotteryPhase.revealing:
       if (my == null) {
-        return l.players == 0 ? 'No picks today. A new draw opens at 00:00 UTC.' : '${groupDigits(l.alive)} of ${groupDigits(l.players)} players still in';
+        return l.players == 0 ? 'No picks today. A new draw opens at ${localTime(l.endsAtUtc)}.' : '${groupDigits(l.alive)} of ${groupDigits(l.players)} players still in';
       }
       return my.alive
           ? "You're still in! ${my.match} matched · ${groupDigits(l.alive)} left"

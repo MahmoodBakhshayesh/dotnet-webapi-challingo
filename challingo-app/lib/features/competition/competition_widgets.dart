@@ -18,7 +18,16 @@ class TickingBuilder extends StatefulWidget {
 }
 
 class _TickingBuilderState extends State<TickingBuilder> {
-  late final Timer _timer = Timer.periodic(const Duration(seconds: 1), (_) => setState(() {}));
+  // Started in initState: a `late final` initializer would only run on first read (in dispose), so it never ticked.
+  late final Timer _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
 
   @override
   void dispose() {
@@ -30,8 +39,11 @@ class _TickingBuilderState extends State<TickingBuilder> {
   Widget build(BuildContext context) => widget.builder(context, widget.serverNow());
 }
 
-/// "12:00 UTC".
-String utcTime(DateTime t) => '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')} UTC';
+/// "14:30" in the phone's own time zone (the server sends UTC).
+String localTime(DateTime t) {
+  final l = t.toLocal();
+  return '${l.hour.toString().padLeft(2, '0')}:${l.minute.toString().padLeft(2, '0')}';
+}
 
 String gameTitle(String? key) => key == null ? 'Mystery game' : (GameKind.fromKey(key)?.title ?? key);
 

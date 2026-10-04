@@ -14,9 +14,13 @@ Future<bool> watchAdForRun(BuildContext context, WidgetRef ref) async {
     ..hideCurrentSnackBar()
     ..showSnackBar(SnackBar(content: Text(text, style: const TextStyle(fontWeight: FontWeight.w700)), behavior: SnackBarBehavior.floating));
   try {
-    final ok = await ref.read(monetizationProvider.notifier).watchAd();
-    say(ok ? '+1 run and stars added. Have fun!' : 'Watch the whole ad to get the reward.');
-    return ok;
+    final result = await ref.read(monetizationProvider.notifier).watchAd();
+    say(switch (result) {
+      AdResult.rewarded => '+1 run and stars added. Have fun!',
+      AdResult.notEarned => 'The ad closed early, so there is no reward this time.',
+      AdResult.unconfirmed => 'Thanks for watching! The reward is still being confirmed and will appear shortly.',
+    });
+    return result == AdResult.rewarded;
   } catch (e) {
     say('$e');
     return false;
@@ -47,6 +51,7 @@ class _RunUnlockSheetState extends ConsumerState<RunUnlockSheet> {
   Widget build(BuildContext context) {
     final status = ref.watch(monetizationProvider).value;
     final adsLeft = status?.adsLeft ?? 0;
+    final adsAvailable = ref.watch(adRewardsAvailableProvider);
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
@@ -55,22 +60,25 @@ class _RunUnlockSheetState extends ConsumerState<RunUnlockSheet> {
           const SizedBox(height: 4),
           Text("You've played today's free runs.", style: Theme.of(context).textTheme.bodyMedium),
           const SizedBox(height: 18),
-          PillButton(
-            label: adsLeft > 0 ? 'Watch an ad: +1 run, +${status?.starsPerAd ?? 5} ★' : 'No more ads today',
-            loading: _busy,
-            onPressed: adsLeft == 0
-                ? null
-                : () async {
-                    final navigator = Navigator.of(context);
-                    setState(() => _busy = true);
-                    final ok = await watchAdForRun(context, ref);
-                    if (!mounted) return;
-                    setState(() => _busy = false);
-                    if (ok) navigator.pop();
-                  },
-          ),
-          const SizedBox(height: 6),
-          Text('$adsLeft of ${status?.adsPerDay ?? 3} ads left today', textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall),
+          if (adsAvailable) ...[
+            PillButton(
+              label: adsLeft > 0 ? 'Watch an ad: +1 run, +${status?.starsPerAd ?? 5} ★' : 'No more ads today',
+              loading: _busy,
+              onPressed: adsLeft == 0
+                  ? null
+                  : () async {
+                      final navigator = Navigator.of(context);
+                      setState(() => _busy = true);
+                      final ok = await watchAdForRun(context, ref);
+                      if (!mounted) return;
+                      setState(() => _busy = false);
+                      if (ok) navigator.pop();
+                    },
+            ),
+            const SizedBox(height: 6),
+            Text('$adsLeft of ${status?.adsPerDay ?? 3} ads left today', textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall),
+          ] else
+            Text('Go Plus for unlimited runs, or come back tomorrow for new free runs.', style: Theme.of(context).textTheme.bodySmall),
           const SizedBox(height: 16),
           PillButton(
             label: 'Go Plus: unlimited runs',

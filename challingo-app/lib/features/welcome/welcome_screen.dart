@@ -83,7 +83,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Ten puzzle games.\nA new race every four hours.',
+                  'Ten puzzle games.\nRanked races all day long.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontWeight: FontWeight.w700,

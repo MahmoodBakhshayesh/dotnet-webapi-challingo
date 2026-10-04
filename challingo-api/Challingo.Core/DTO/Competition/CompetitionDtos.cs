@@ -33,6 +33,10 @@ public sealed class RunCardDto
     public ChallengeKind Kind { get; init; }
     public required string GameKey { get; init; }
     public int Sequence { get; init; }
+
+    /// <summary>1 = Beginner … 4 = Expert.</summary>
+    public int Difficulty { get; init; }
+
     public DateTime OpensAtUtc { get; init; }
     public DateTime JoinClosesAtUtc { get; init; }
     public DateTime ClosesAtUtc { get; init; }

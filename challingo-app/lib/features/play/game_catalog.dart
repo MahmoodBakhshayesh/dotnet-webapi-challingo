@@ -22,7 +22,16 @@ enum GameKind {
   final String tagline;
 
   static GameKind? fromKey(String key) => values.where((g) => g.key == key).firstOrNull;
+
+  /// Generated games scale with a level (size, mines, target…); Word Guess and Mini Crossword come from reviewed content.
+  bool get hasLevels => this != wordGuess && this != miniCrossword;
 }
+
+/// Difficulty levels the server understands (1–4).
+const gameLevels = [(1, 'Beginner'), (2, 'Intermediate'), (3, 'Advanced'), (4, 'Expert')];
+
+/// "Intermediate" for 2; empty for 0 / unknown.
+String levelName(int? level) => gameLevels.where((l) => l.$1 == level).map((l) => l.$2).firstOrNull ?? '';
 
 /// The game's line icon from the visual identity canvas.
 class GameGlyph extends StatelessWidget {

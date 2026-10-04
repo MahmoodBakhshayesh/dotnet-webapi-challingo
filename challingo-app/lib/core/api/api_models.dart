@@ -80,6 +80,7 @@ class AttemptStart {
     required this.attemptId,
     required this.attemptToken,
     required this.gameKey,
+    this.difficulty = 0,
     required this.puzzle,
     required this.startedAtUtc,
     required this.closesAtUtc,
@@ -92,6 +93,9 @@ class AttemptStart {
   final String attemptId;
   final String attemptToken;
   final String gameKey;
+
+  /// 1 = Beginner … 4 = Expert.
+  final int difficulty;
 
   /// Public puzzle JSON — never holds the solution.
   final Map<String, dynamic> puzzle;
@@ -108,6 +112,7 @@ class AttemptStart {
     attemptId: json['attemptId'] as String,
     attemptToken: json['attemptToken'] as String,
     gameKey: json['gameKey'] as String,
+    difficulty: (json['difficulty'] as num?)?.toInt() ?? 0,
     puzzle: (json['puzzle'] as Map).cast<String, dynamic>(),
     startedAtUtc: _date(json['startedAtUtc']),
     closesAtUtc: _date(json['closesAtUtc']),

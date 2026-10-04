@@ -12,6 +12,7 @@ import '../../widgets/challingo/tilo.dart';
 import '../boards/board_widgets.dart';
 import '../competition/competition_providers.dart';
 import '../competition/competition_widgets.dart';
+import '../competition/monetization_providers.dart';
 import '../lottery/lottery_widgets.dart';
 import '../plus/run_unlock.dart';
 import '../play/game_catalog.dart';
@@ -73,7 +74,7 @@ class HubScreen extends ConsumerWidget {
                       Text('unlimited runs', style: text.bodySmall),
                     ] else ...[
                       Text('${(value.rankedAllowed! - value.rankedUsed).clamp(0, 99)} runs left', style: text.bodySmall),
-                      if (value.canWatchAd)
+                      if (value.canWatchAd && ref.watch(adRewardsAvailableProvider))
                         TextButton.icon(
                           onPressed: () => watchAdForRun(context, ref),
                           style: TextButton.styleFrom(visualDensity: VisualDensity.compact, padding: const EdgeInsets.only(left: 8)),
@@ -203,7 +204,7 @@ class _RunAction extends StatelessWidget {
       );
     }
     if (open) {
-      return _JoinButton(label: 'Get runs', time: 'ad or Plus', onTap: () => RunUnlockSheet.show(context));
+      return _JoinButton(label: 'Get runs', time: 'more runs', onTap: () => RunUnlockSheet.show(context));
     }
     final next = game.next;
     return _Countdown(label: 'Next run', value: next == null ? 'soon' : formatDuration(next.opensAtUtc.difference(now)));

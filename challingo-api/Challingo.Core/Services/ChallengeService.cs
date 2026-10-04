@@ -25,18 +25,18 @@ public sealed class ChallengeService(
     IOptions<PuzzleOptions> options,
     TimeProvider clock) : IChallengeService
 {
-    public async Task<ActionResult<ChallengeResponse>> CreatePracticeAsync(Guid userId, string gameKey)
+    public async Task<ActionResult<ChallengeResponse>> CreatePracticeAsync(Guid userId, string gameKey, int? difficulty = null)
     {
         var game = games.Find(gameKey);
         if (game is null)
             return AppResponse.NotFound($"Unknown game '{gameKey}'.");
 
-        var difficulty = options.Value.PracticeDifficulty;
+        var level = Math.Clamp(difficulty ?? options.Value.PracticeDifficulty, 1, 4);
         var seed = RandomNumberGenerator.GetInt32(int.MaxValue);
         GeneratedPuzzle generated;
         try
         {
-            generated = await game.GenerateAsync(seed, difficulty);
+            generated = await game.GenerateAsync(seed, level);
         }
         catch (PuzzleContentUnavailableException ex)
         {
@@ -49,7 +49,7 @@ public sealed class ChallengeService(
             Id = Guid.CreateVersion7(),
             GameKey = game.Key,
             Seed = seed,
-            Difficulty = difficulty,
+            Difficulty = level,
             GeneratorVersion = game.GeneratorVersion,
             PublicJson = generated.PublicJson,
             SecretJson = generated.SecretJson,
@@ -74,6 +74,7 @@ public sealed class ChallengeService(
             GameKey = puzzle.GameKey,
             OpensAtUtc = challenge.OpensAtUtc,
             ClosesAtUtc = challenge.ClosesAtUtc,
+            Difficulty = level,
         });
     }
 
@@ -125,6 +126,7 @@ public sealed class ChallengeService(
             AttemptId = attempt.Id,
             AttemptToken = tokens.Create(attempt.Id, attempt.UserId),
             GameKey = challenge.Puzzle.GameKey,
+            Difficulty = challenge.Puzzle.Difficulty,
             Puzzle = JToken.Parse(challenge.Puzzle.PublicJson),
             StartedAtUtc = attempt.StartedAtUtc,
             ClosesAtUtc = challenge.ClosesAtUtc,

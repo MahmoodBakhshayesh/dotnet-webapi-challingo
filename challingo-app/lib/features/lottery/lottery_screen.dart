@@ -70,7 +70,7 @@ class _LotteryScreenState extends ConsumerState<LotteryScreen> {
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text('Daily draw', style: text.titleLarge),
-                      Text('${l.dayKey} · UTC', style: text.bodySmall),
+                      Text('Draw ${l.dayKey}', style: text.bodySmall),
                     ]),
                   ),
                   StatPill.stars(groupDigits(l.pot)),
@@ -83,18 +83,18 @@ class _LotteryScreenState extends ConsumerState<LotteryScreen> {
                 else if (l.my != null)
                   _myTicket(l)
                 else
-                  const ChallingoCard(
+                  ChallingoCard(
                     child: Row(children: [
-                      Tilo(size: 56, mood: TiloMood.thinking),
-                      SizedBox(width: 12),
+                      const Tilo(size: 56, mood: TiloMood.thinking),
+                      const SizedBox(width: 12),
                       Expanded(
-                        child: Text('Picks closed at 14:00 UTC. A new draw opens at 00:00 UTC.', style: TextStyle(fontWeight: FontWeight.w700)),
+                        child: Text('Picks closed at ${localTime(l.picksCloseAtUtc)}. A new draw opens at ${localTime(l.endsAtUtc)}.', style: const TextStyle(fontWeight: FontWeight.w700)),
                       ),
                     ]),
                   ),
                 const SizedBox(height: 16),
                 if (l.result != null) ...[_ResultCard(lottery: l), const SizedBox(height: 16)],
-                const _HowItWorks(),
+                _HowItWorks(lottery: l),
                 const SizedBox(height: 16),
                 _Fairness(lottery: l),
                 const SizedBox(height: 20),
@@ -280,16 +280,19 @@ class _ResultCard extends StatelessWidget {
 }
 
 class _HowItWorks extends StatelessWidget {
-  const _HowItWorks();
+  const _HowItWorks({required this.lottery});
+
+  final Lottery lottery;
 
   @override
   Widget build(BuildContext context) => ChallingoCard(
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text('HOW IT WORKS', style: Theme.of(context).textTheme.labelSmall),
       const SizedBox(height: 8),
-      for (final line in const [
-        'Pick a 10-digit number between 00:00 and 14:00 UTC. It is free, one number a day.',
-        'From 15:00 UTC one digit of the winning number appears every hour, the last at midnight.',
+      for (final line in [
+        // Times in the phone's zone: the draw runs on a fixed worldwide clock.
+        'Pick a 10-digit number before ${localTime(lottery.picksCloseAtUtc)}. It is free, one number a day.',
+        'From ${localTime(lottery.picksCloseAtUtc.add(const Duration(hours: 1)))} one digit of the winning number appears every hour, the last at ${localTime(lottery.endsAtUtc)}.',
         'Your digits must match from the first one. Miss one and you are out.',
         'Whoever matches the most digits shares the pot. If nobody matches the first digit, the pot rolls over.',
       ])

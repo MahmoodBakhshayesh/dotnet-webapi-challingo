@@ -62,6 +62,7 @@ class RunCard {
     required this.kind,
     required this.gameKey,
     required this.sequence,
+    this.difficulty = 0,
     required this.opensAtUtc,
     required this.joinClosesAtUtc,
     required this.closesAtUtc,
@@ -73,6 +74,9 @@ class RunCard {
   final ChallengeKind kind;
   final String gameKey;
   final int sequence;
+
+  /// 1 = Beginner … 4 = Expert.
+  final int difficulty;
   final DateTime opensAtUtc;
 
   /// Last moment to start.
@@ -95,6 +99,7 @@ class RunCard {
     kind: ChallengeKind.values[_int(json['kind'])],
     gameKey: json['gameKey'] as String,
     sequence: _int(json['sequence']),
+    difficulty: (json['difficulty'] as num?)?.toInt() ?? 0,
     opensAtUtc: _date(json['opensAtUtc']),
     joinClosesAtUtc: _date(json['joinClosesAtUtc']),
     closesAtUtc: _date(json['closesAtUtc']),

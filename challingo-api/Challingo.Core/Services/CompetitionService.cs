@@ -167,6 +167,7 @@ public sealed class CompetitionService(
             Kind = c.Kind,
             GameKey = c.GameKey,
             Sequence = c.Sequence,
+            Difficulty = c.Puzzle?.Difficulty ?? 0,
             OpensAtUtc = c.OpensAtUtc,
             JoinClosesAtUtc = c.JoinClosesAtUtc,
             ClosesAtUtc = c.ClosesAtUtc,

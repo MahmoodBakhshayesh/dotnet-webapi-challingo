@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/api/competition_models.dart';
 import '../../core/theme/app_colors.dart';
@@ -10,17 +11,44 @@ import '../boards/board_widgets.dart';
 import '../boards/boards_screen.dart';
 import '../competition/competition_providers.dart';
 import '../competition/competition_widgets.dart';
+import '../competition/monetization_providers.dart';
+import '../help/how_to_play_sheet.dart';
 import '../play/game_catalog.dart';
 import '../plus/run_unlock.dart';
 
-/// One game: its live run, the next one, practice, and its day / week / month / all-time boards.
-class GameScreen extends ConsumerWidget {
+/// One game: its live run, the next one, practice at a chosen level, and its day / week / month / all-time boards.
+class GameScreen extends ConsumerStatefulWidget {
   const GameScreen({super.key, required this.gameKey});
 
   final String gameKey;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<GameScreen> createState() => _GameScreenState();
+}
+
+class _GameScreenState extends ConsumerState<GameScreen> {
+  int _level = 1;
+
+  String get gameKey => widget.gameKey;
+  String get _prefsKey => 'practice_level_$gameKey';
+
+  @override
+  void initState() {
+    super.initState();
+    // The practice level is remembered per game on this phone.
+    SharedPreferences.getInstance().then((p) {
+      final saved = p.getInt(_prefsKey);
+      if (saved != null && mounted) setState(() => _level = saved.clamp(1, 4));
+    });
+  }
+
+  Future<void> _setLevel(int level) async {
+    setState(() => _level = level);
+    (await SharedPreferences.getInstance()).setInt(_prefsKey, level);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final kind = GameKind.fromKey(gameKey);
     final lobby = ref.watch(lobbyProvider).value;
     final game = lobby?.game(gameKey);
@@ -43,19 +71,39 @@ class GameScreen extends ConsumerWidget {
                   if (game != null) Text('A new ranked run ${cadenceLabel(game.everyMinutes)}', style: text.bodySmall),
                 ]),
               ),
+              if (kind != null) SquareIconButton(icon: Icons.question_mark_rounded, label: 'How to play', onPressed: () => HowToPlaySheet.show(context, kind)),
             ]),
             const SizedBox(height: 16),
             if (lobby != null && game != null)
               TickingBuilder(
                 serverNow: serverNow,
-                builder: (context, now) => _RunPanel(game: game, lobby: lobby, now: now),
+                builder: (context, now) => _RunPanel(game: game, lobby: lobby, now: now, adsAvailable: ref.watch(adRewardsAvailableProvider)),
               ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 20),
+            Text('PRACTICE', style: text.labelSmall),
+            const SizedBox(height: 8),
+            if (kind?.hasLevels ?? false) ...[
+              Wrap(spacing: 8, runSpacing: 8, children: [
+                for (final (level, name) in gameLevels)
+                  ChoiceChip(
+                    label: Text(name, style: const TextStyle(fontWeight: FontWeight.w800)),
+                    selected: _level == level,
+                    showCheckmark: false,
+                    selectedColor: AppColors.violet,
+                    labelStyle: TextStyle(color: _level == level ? Colors.white : AppColors.ink),
+                    backgroundColor: Colors.white,
+                    side: BorderSide.none,
+                    shape: const StadiumBorder(),
+                    onSelected: (_) => _setLevel(level),
+                  ),
+              ]),
+              const SizedBox(height: 10),
+            ],
             PillButton(
-              label: 'Practice (not ranked)',
+              label: (kind?.hasLevels ?? false) ? 'Practice · ${levelName(_level)}' : 'Practice (not ranked)',
               height: 50,
               style: PillStyle.secondary,
-              onPressed: () => context.push('/play/$gameKey'),
+              onPressed: () => context.push((kind?.hasLevels ?? false) ? '/play/$gameKey?level=$_level' : '/play/$gameKey'),
             ),
             if (kind != null) ...[
               const SizedBox(height: 6),
@@ -73,11 +121,12 @@ class GameScreen extends ConsumerWidget {
 }
 
 class _RunPanel extends StatelessWidget {
-  const _RunPanel({required this.game, required this.lobby, required this.now});
+  const _RunPanel({required this.game, required this.lobby, required this.now, required this.adsAvailable});
 
   final GameLobby game;
   final Lobby lobby;
   final DateTime now;
+  final bool adsAvailable;
 
   @override
   Widget build(BuildContext context) {
@@ -102,10 +151,10 @@ class _RunPanel extends StatelessWidget {
           : 'Uses 1 of your ${lobby.rankedAllowed! - lobby.rankedUsed} runs left today. Every run adds to your totals.';
     } else if (open) {
       action = PillButton(label: 'Get more runs', height: 52, onPressed: () => RunUnlockSheet.show(context));
-      note = lobby.canWatchAd ? 'Watch an ad (+1 run) or go Plus for unlimited runs.' : 'Go Plus for unlimited runs, or come back tomorrow.';
+      note = lobby.canWatchAd && adsAvailable ? 'Watch an ad (+1 run) or go Plus for unlimited runs.' : 'Go Plus for unlimited runs, or come back tomorrow.';
     } else {
       action = const PillButton(label: 'Waiting for the next run', height: 52, onPressed: null);
-      note = 'Runs open at fixed UTC times.';
+      note = 'A new run starts ${cadenceLabel(game.everyMinutes)}.';
     }
 
     return ChallingoCard(
@@ -117,7 +166,13 @@ class _RunPanel extends StatelessWidget {
           ),
         ]),
         const SizedBox(height: 6),
-        Text(open ? 'Join before ${utcTime(current.joinClosesAtUtc)}' : 'Opens at ${next == null ? '–' : utcTime(next.opensAtUtc)}', style: muted),
+        Text(
+          [
+            open ? 'Join before ${localTime(current.joinClosesAtUtc)}' : 'Opens at ${next == null ? '–' : localTime(next.opensAtUtc)}',
+            if (GameKind.fromKey(game.gameKey)?.hasLevels ?? false) levelName((open ? current : next)?.difficulty),
+          ].where((s) => s.isNotEmpty).join(' · '),
+          style: muted,
+        ),
         if (game.dayPoints != null) ...[
           const SizedBox(height: 4),
           Text(

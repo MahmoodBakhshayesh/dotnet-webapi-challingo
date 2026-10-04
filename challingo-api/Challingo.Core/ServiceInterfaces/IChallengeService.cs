@@ -6,7 +6,8 @@ namespace Challingo.Core.ServiceInterfaces;
 public interface IChallengeService
 {
     /// <summary>Generates a fresh puzzle of <paramref name="gameKey"/> as an unranked practice challenge for this player.</summary>
-    Task<ActionResult<ChallengeResponse>> CreatePracticeAsync(Guid userId, string gameKey);
+    /// <param name="difficulty">1 = Beginner … 4 = Expert; null = the configured practice level.</param>
+    Task<ActionResult<ChallengeResponse>> CreatePracticeAsync(Guid userId, string gameKey, int? difficulty = null);
 
     /// <summary>Starts (or resumes) the player's single attempt: records server start time, returns the puzzle + token.</summary>
     Task<ActionResult<StartAttemptResponse>> StartAsync(Guid userId, Guid challengeId);
